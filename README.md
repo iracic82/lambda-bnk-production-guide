@@ -4,13 +4,20 @@ This kit takes the Inference Gateway from the Lambda Cloud POC lab into Lambda's
 It has everything an engineer needs without starting the lab: the API contracts, the Helm chart, production
 values, the helper services, the console integration, and a step-by-step install.
 
-**Start with `index.html`** (open it in a browser). It's the visual guide: architecture, contracts and
-envelopes, what each API call does in BNK, who owns what, and the install in two views:
+## Start here
 
-| View | For | Text version | Values |
+**[Open the visual guide →](https://iracic82.github.io/lambda-bnk-production-guide/)**
+
+The visual guide is one page with everything: architecture, contracts and envelopes, what each API call does
+in BNK, who owns what, lab vs production, and the install with a copy button on every command. It's the
+same file as `index.html` in this repo, which also works offline: download the repo and open it in a browser.
+
+The install comes in two views. Pick one:
+
+| View | For | Steps | Values |
 |---|---|---|---|
-| **Production** | Lambda's environment: your BNK, key service, API gateway, console and billing | `INSTALL.md` | `values-production.yaml` |
-| **Try it in a lab** | A quick trial on a test BNK cluster with a trial key service, before anything is wired | `LAB.md` | `values-lab.yaml` |
+| **Production** | Lambda's environment: your BNK, key service, API gateway, console and billing | [INSTALL.md](INSTALL.md) | [values-production.yaml](values-production.yaml) |
+| **Try it in a lab** | A quick trial on a test BNK cluster with a trial key service, before anything is wired | [LAB.md](LAB.md) | [values-lab.yaml](values-lab.yaml) |
 
 The lab view is the procedure that was run on the reference lab. The production view replaces every lab
 stand-in with the Lambda system that takes its place.
