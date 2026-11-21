@@ -1,0 +1,53 @@
+# Calypso relay in lambda-ie: the guardrail iRule's scan target in front of F5 AI Guardrails (CalypsoAI).
+# The iRule sideband is plain TCP to an IP, Calypso is an HTTPS SaaS with a Bearer token, so the relay
+# (bnk_adapter.calypso, same image as the adapter) holds the token from the Secret calypso-api and calls
+# POST /backend/v1/scans. Point the chart's GUARDRAIL_URL here (INSTALL.md, step 5).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: calypso-relay
+  namespace: lambda-ie
+  labels: {app: calypso-relay}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: calypso-relay}
+  template:
+    metadata:
+      labels: {app: calypso-relay}
+    spec:
+      securityContext: {runAsNonRoot: true, runAsUser: 10001, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: relay
+          image: iracic82/bnk-inference-adapter:0.1.0   # CHANGE: your mirrored copy
+          imagePullPolicy: IfNotPresent
+          command: ["uvicorn", "bnk_adapter.calypso:app", "--host", "0.0.0.0", "--port", "8080"]
+          ports: [{containerPort: 8080, name: http}]
+          envFrom: [{secretRef: {name: calypso-api}}]
+          readinessProbe: {httpGet: {path: /healthz, port: 8080}, periodSeconds: 5}
+          resources: {requests: {cpu: 50m, memory: 96Mi}, limits: {memory: 256Mi}}
+          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+          volumeMounts: [{name: tmp, mountPath: /tmp}]
+      volumes: [{name: tmp, emptyDir: {}}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: calypso-relay, namespace: lambda-ie, labels: {app: calypso-relay}}
+spec:
+  selector: {app: calypso-relay}
+  ports: [{name: http, port: 8080, targetPort: 8080, protocol: TCP}]
+---
+# Only the guardrail iRule (TMM) and the adapter may scan: the relay spends the Calypso token.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: calypso-relay-ingress, namespace: lambda-ie}
+spec:
+  podSelector: {matchLabels: {app: calypso-relay}}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - ipBlock: {cidr: 10.1.20.201/32}   # CHANGE: your TMM internal self-IP(s)
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: f5-bnk}}
+          podSelector: {matchLabels: {app: f5-tmm}}
+        - podSelector: {matchLabels: {app: bnk-inference-adapter}}
+      ports: [{port: 8080}]

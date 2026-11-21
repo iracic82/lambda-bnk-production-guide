@@ -1,0 +1,59 @@
+# Frontier proxy in lambda-ie: an OpenAI-compatible /v1/chat/completions in front of Amazon Bedrock
+# (bnk_adapter.frontier, same image as the adapter). BNK routes an endpoint's frontier listener (8002) to
+# this Service, so frontier requests pass the same iRule (auth, guardrail, quota, metering) as the GPUs.
+# Credentials: the Secret frontier-aws (create it first, INSTALL.md step 5), never in the image.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontier-proxy
+  namespace: lambda-ie
+  labels: {app: frontier-proxy}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: frontier-proxy}
+  template:
+    metadata:
+      labels: {app: frontier-proxy}
+    spec:
+      securityContext: {runAsNonRoot: true, runAsUser: 10001, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: proxy
+          image: iracic82/bnk-inference-adapter:0.1.0   # CHANGE: your mirrored copy
+          imagePullPolicy: IfNotPresent
+          command: ["uvicorn", "bnk_adapter.frontier:app", "--host", "0.0.0.0", "--port", "8000"]
+          ports: [{containerPort: 8000, name: http}]
+          envFrom: [{secretRef: {name: frontier-aws}}]
+          env:
+            - {name: FRONTIER_MODELS, valueFrom: {configMapKeyRef: {name: frontier-models, key: FRONTIER_MODELS}}}
+          readinessProbe: {httpGet: {path: /healthz, port: 8000}, periodSeconds: 5}
+          resources: {requests: {cpu: 50m, memory: 128Mi}, limits: {memory: 512Mi}}
+          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+          volumeMounts: [{name: tmp, mountPath: /tmp}]
+      volumes: [{name: tmp, emptyDir: {}}]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontier-proxy
+  namespace: lambda-ie
+  labels: {app: frontier-proxy}
+spec:
+  selector: {app: frontier-proxy}
+  ports: [{name: http, port: 8000, targetPort: 8000, protocol: TCP}]
+---
+# Only BNK reaches the proxy (TMM sends the frontier listener's traffic here) and the adapter; anything else
+# in the cluster could otherwise spend your Bedrock account directly.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: frontier-proxy-ingress, namespace: lambda-ie}
+spec:
+  podSelector: {matchLabels: {app: frontier-proxy}}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - ipBlock: {cidr: 10.1.20.201/32}   # CHANGE: your TMM internal self-IP(s)
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: f5-bnk}}
+          podSelector: {matchLabels: {app: f5-tmm}}
+        - podSelector: {matchLabels: {app: bnk-inference-adapter}}
+      ports: [{port: 8000}]

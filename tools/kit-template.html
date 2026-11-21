@@ -1,0 +1,945 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lambda BNK Production Guide</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap">
+<style>
+/* Layout: one reading column (~72ch) with wide-breakout blocks for tables, diagram and code. */
+:root{
+  --bg:#f6f7f9; --surface:#ffffff; --sunk:#eef0f4; --fg:#161a22; --muted:#5a6272; --line:#d9dde5;
+  --accent:#c2185b; --accent-soft:#fbe7ef; --teal:#0f766e; --teal-soft:#e2f3f1; --code-bg:#11151c; --code-fg:#e6e9ef; --code-dim:#8a93a6;
+  --display:"Space Grotesk",ui-sans-serif,system-ui,sans-serif;
+  --body:"IBM Plex Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1218; --surface:#161a22; --sunk:#1c212b; --fg:#e7eaf0; --muted:#9aa3b5; --line:#2a303c;
+  --accent:#f06292; --accent-soft:#3a1626; --teal:#5eead4; --teal-soft:#12302d; --code-bg:#0a0d12; --code-fg:#e6e9ef; --code-dim:#7d869a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1218; --surface:#161a22; --sunk:#1c212b; --fg:#e7eaf0; --muted:#9aa3b5; --line:#2a303c;
+  --accent:#f06292; --accent-soft:#3a1626; --teal:#5eead4; --teal-soft:#12302d; --code-bg:#0a0d12; --code-fg:#e6e9ef; --code-dim:#7d869a; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:16px/1.6 var(--body);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1040px;margin:0 auto;padding-block:48px 96px}
+.prose{max-width:72ch}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;line-height:1.15;margin:0}
+h1{font-size:clamp(2rem,5vw,3.1rem);font-weight:700;letter-spacing:-.02em}
+h2{font-size:1.65rem;font-weight:600;letter-spacing:-.01em}
+h3{font-size:1.1rem;font-weight:600}
+p{margin:0}
+a{color:var(--accent)}
+code,.mono{font-family:var(--mono);font-size:.86em}
+:not(pre)>code{background:var(--sunk);padding:.1em .35em;border-radius:3px;overflow-wrap:anywhere}
+.eyebrow{font:500 .75rem/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+.lede{font-size:1.15rem;color:var(--muted);max-width:68ch}
+header.top{display:flex;flex-direction:column;gap:18px;padding-bottom:32px;border-bottom:1px solid var(--line)}
+.meta{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font:500 .78rem/1 var(--mono);padding:6px 10px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--muted)}
+nav.toc{display:flex;flex-wrap:wrap;gap:6px 18px;padding-block:18px;font-size:.92rem}
+nav.toc a{color:var(--muted);text-decoration:none}
+nav.toc a:hover,nav.toc a:focus-visible{color:var(--accent);text-decoration:underline}
+section.s{display:flex;flex-direction:column;gap:18px;padding-top:56px}
+section.s>.head{display:flex;flex-direction:column;gap:8px}
+.stack{display:flex;flex-direction:column;gap:14px}
+.callout{background:var(--teal-soft);border-left:3px solid var(--teal);padding:14px 18px;border-radius:0 6px 6px 0;max-width:72ch}
+.scroll{overflow-x:auto;min-width:0}
+table{border-collapse:collapse;width:100%;font-size:.9rem}
+th{font:500 .72rem/1.2 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);text-align:left;padding:10px 14px;border-bottom:1px solid var(--line)}
+td{padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+td:first-child{white-space:nowrap}
+.tbl{background:var(--surface);border:1px solid var(--line);border-radius:8px}
+.m{font-family:var(--mono);font-size:.82rem}
+.verb{display:inline-block;min-width:4.2em;font:600 .72rem/1 var(--mono);padding:4px 6px;border-radius:3px;text-align:center;margin-right:8px}
+.GET{background:var(--teal-soft);color:var(--teal)}.POST{background:var(--accent-soft);color:var(--accent)}
+.PATCH,.DELETE{background:var(--sunk);color:var(--fg)}
+pre{margin:0;background:var(--code-bg);color:var(--code-fg);font:13px/1.55 var(--mono);padding:16px 18px;border-radius:8px;overflow-x:auto;tab-size:2}
+pre .c{color:var(--code-dim)}
+.code{position:relative;min-width:0}
+.code .label{display:flex;justify-content:space-between;align-items:center;gap:12px;font:500 .74rem/1 var(--mono);color:var(--muted);padding:0 2px 6px}
+.copy{font:500 .72rem/1 var(--mono);background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:4px;padding:5px 9px;cursor:pointer}
+.copy:hover{border-color:var(--accent)}
+.copy:focus-visible,summary:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+details{background:var(--surface);border:1px solid var(--line);border-radius:8px}
+details>summary{cursor:pointer;padding:12px 16px;font-weight:500;display:flex;justify-content:space-between;gap:12px;align-items:center;list-style:none}
+details>summary::-webkit-details-marker{display:none}
+details>summary::after{content:"+";font:500 1.1rem/1 var(--mono);color:var(--muted)}
+details[open]>summary::after{content:"−"}
+details>summary .sub{font:400 .8rem/1.3 var(--mono);color:var(--muted)}
+details>.inner{padding:0 16px 16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+details pre{max-height:560px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.card h3{font-size:1rem}
+.card p{color:var(--muted);font-size:.95rem}
+ol.steps{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:28px;counter-reset:st}
+ol.steps>li{counter-increment:st;display:grid;grid-template-columns:44px 1fr;gap:6px 14px}
+ol.steps>li::before{content:counter(st);grid-row:span 2;font:600 1rem/1 var(--display);width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent)}
+ol.steps>li>.body{display:flex;flex-direction:column;gap:10px;min-width:0}
+ol.steps h3{padding-top:6px}
+.order{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.order .frag{font:500 .85rem/1 var(--mono);padding:9px 12px;border-radius:6px;background:var(--surface);border:1px solid var(--line)}
+.owner{font:500 .68rem/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--teal);background:var(--teal-soft);padding:4px 7px;border-radius:3px;margin-left:8px;vertical-align:middle;white-space:nowrap}
+.order .frag.always{border-color:var(--accent);color:var(--accent)}
+.order .arr{color:var(--muted)}
+.wire{display:flex;flex-wrap:wrap;gap:4px;font-family:var(--mono);font-size:.8rem}
+.wire span{display:flex;flex-direction:column;gap:3px;background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:6px 8px;min-width:0}
+.wire b{font-weight:500;color:var(--accent);font-size:.7rem;letter-spacing:.04em}
+.wire i{font-style:normal;overflow-wrap:anywhere}
+ul.plain{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:6px}
+.diagram{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px}
+.diagram svg{display:block;width:100%;min-width:760px;height:auto}
+.dbox{fill:var(--sunk);stroke:var(--line)}
+.dbox.a{fill:var(--accent-soft);stroke:var(--accent)}
+.dbox.t{fill:var(--teal-soft);stroke:var(--teal)}
+.dt{fill:var(--fg);font:600 13px var(--body)}
+.ds{fill:var(--muted);font:400 11px var(--mono)}
+.dl{fill:var(--muted);font:500 10.5px var(--mono);letter-spacing:.08em}
+.ln{stroke:var(--muted);stroke-width:1.4;fill:none}
+.ln.d{stroke-dasharray:4 4}
+.ln.ac{stroke:var(--accent)}
+.ahead{fill:var(--muted)}
+.ahead.ac{fill:var(--accent)}
+.lbl{fill:var(--muted);font:400 11px var(--body)}
+.lbl.ac{fill:var(--accent)}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;border-bottom:1px solid var(--line)}
+.tab{font:600 .95rem/1 var(--display);background:none;border:0;border-bottom:2px solid transparent;color:var(--muted);padding:12px 14px;cursor:pointer;display:flex;gap:8px;align-items:baseline;margin-bottom:-1px}
+.tab span{font:400 .72rem/1 var(--mono);color:var(--muted)}
+.tab[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--accent)}
+.tab:hover{color:var(--fg)}
+.tab:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.view{display:flex;flex-direction:column;gap:22px;padding-top:8px}
+.callout.lab{background:var(--accent-soft);border-left-color:var(--accent)}
+footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--line);color:var(--muted);font-size:.85rem}
+@media (max-width:560px){ol.steps>li{grid-template-columns:1fr}ol.steps>li::before{grid-row:auto}td{padding:9px 10px}}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+</style>
+
+<div class="wrap">
+<header class="top">
+  <span class="eyebrow">Lambda Inference Gateway · F5 BIG-IP Next for Kubernetes · production guide</span>
+  <h1>Taking the Inference Gateway into production</h1>
+  <p class="lede">Everything the Lambda Cloud POC lab did, written for the engineers who would run it: the API contracts and envelopes, the Helm chart and its production values, the exact BNK objects behind every call, the console integration, and a step-by-step production install. No lab needed.</p>
+  <div class="meta">
+    <span class="chip">BNK 2.4</span><span class="chip">Gateway API + GAIE v1.4.0</span><span class="chip">1 Helm chart + 2 helpers</span><span class="chip">2 API prefixes</span><span class="chip">1 introspection endpoint</span>
+  </div>
+</header>
+
+<nav class="toc" aria-label="Sections">
+  <a href="#fits">How it fits</a><a href="#owners">Who owns what</a><a href="#labprod">Lab vs production</a><a href="#contract">The contract</a><a href="#envelopes">Envelopes</a><a href="#objects">API call → BNK objects</a><a href="#irule">The iRule</a><a href="#chart">The Helm chart</a><a href="#install">Install: production · lab</a><a href="#frontend">Console integration</a><a href="#ops">Operating it</a><a href="#kit">What's in the kit</a>
+</nav>
+
+<!-- ============ FITS ============ -->
+<section class="s" id="fits">
+  <div class="head"><span class="eyebrow">Architecture</span><h2>How it fits</h2></div>
+  <div class="prose stack">
+    <p>Every click in the lab went through one service, <code>bnk-inference-adapter</code>. It owns the Inference Gateway API, turns each call into Gateway API, Gateway API Inference Extension (GAIE) and BNK objects, and collects per-request usage records that the BNK iRule sends it. One Helm chart installs it. Two small helpers sit next to it: <code>frontier-proxy</code> for Amazon Bedrock and <code>calypso-relay</code> for F5 AI Guardrails.</p>
+  </div>
+  <div class="diagram scroll" role="img" aria-label="Control plane: Lambda console calls Lambda Cloud API, which routes /api/v1/inference-* to bnk-inference-adapter, which writes BNK objects through the Kubernetes API. Data plane: a client calls the endpoint VIP on BNK TMM, where the iRule runs auth, guardrail, quota and metering, then an InferencePool with the F5 endpoint picker chooses a GPU instance. TMM calls key introspection, guardrail scan and the frontier proxy as sidebands, and sends usage records back to the adapter.">
+    <svg viewBox="0 0 1000 430" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="ar" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path class="ahead" d="M0 0L8 4L0 8z"/></marker>
+        <marker id="ara" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path class="ahead ac" d="M0 0L8 4L0 8z"/></marker>
+      </defs>
+      <text class="dl" x="20" y="34">CONTROL PLANE · YOUR API</text>
+      <rect class="dbox" x="20" y="46" width="170" height="60" rx="5"/><text class="dt" x="105" y="72" text-anchor="middle">Lambda console</text><text class="ds" x="105" y="90" text-anchor="middle">or any API client</text>
+      <rect class="dbox" x="230" y="46" width="190" height="60" rx="5"/><text class="dt" x="325" y="72" text-anchor="middle">Lambda Cloud API</text><text class="ds" x="325" y="90" text-anchor="middle">routes /api/v1/inference-*</text>
+      <rect class="dbox a" x="460" y="46" width="200" height="60" rx="5"/><text class="dt" x="560" y="72" text-anchor="middle">bnk-inference-adapter</text><text class="ds" x="560" y="90" text-anchor="middle">Helm chart · :8080</text>
+      <rect class="dbox" x="700" y="46" width="280" height="60" rx="5"/><text class="dt" x="840" y="72" text-anchor="middle">Kubernetes API</text><text class="ds" x="840" y="90" text-anchor="middle">Gateway · HTTPRoute · Pool · iRule</text>
+      <line class="ln" x1="190" y1="76" x2="226" y2="76" marker-end="url(#ar)"/>
+      <line class="ln" x1="420" y1="76" x2="456" y2="76" marker-end="url(#ar)"/>
+      <line class="ln" x1="660" y1="76" x2="696" y2="76" marker-end="url(#ar)"/>
+      <path class="ln" d="M840 106 V170 H600 V232" marker-end="url(#ar)"/>
+      <text class="lbl" x="850" y="150">BNK controller programs TMM</text>
+      <path class="ln d ac" d="M420 236 L540 110" marker-end="url(#ara)"/>
+      <text class="lbl ac" x="476" y="166" text-anchor="end">usage records</text><text class="lbl ac" x="476" y="180" text-anchor="end">TCP :5514</text>
+
+      <text class="dl" x="20" y="226">DATA PLANE · BNK</text>
+      <rect class="dbox" x="20" y="240" width="170" height="64" rx="5"/><text class="dt" x="105" y="267" text-anchor="middle">Customer app</text><text class="ds" x="105" y="285" text-anchor="middle">OpenAI-compatible</text>
+      <rect class="dbox a" x="230" y="240" width="230" height="64" rx="5"/><text class="dt" x="345" y="262" text-anchor="middle">BNK TMM · endpoint VIP :8000</text><text class="ds" x="345" y="280" text-anchor="middle">iRule: auth → guardrail →</text><text class="ds" x="345" y="294" text-anchor="middle">quota → metering</text>
+      <rect class="dbox t" x="500" y="240" width="200" height="64" rx="5"/><text class="dt" x="600" y="267" text-anchor="middle">InferencePool + F5 EPP</text><text class="ds" x="600" y="285" text-anchor="middle">cache-aware pick</text>
+      <rect class="dbox" x="740" y="240" width="240" height="64" rx="5"/><text class="dt" x="860" y="267" text-anchor="middle">GPU instances</text><text class="ds" x="860" y="285" text-anchor="middle">vLLM model servers</text>
+      <line class="ln" x1="190" y1="272" x2="226" y2="272" marker-end="url(#ar)"/>
+      <line class="ln" x1="460" y1="272" x2="496" y2="272" marker-end="url(#ar)"/>
+      <line class="ln" x1="700" y1="272" x2="736" y2="272" marker-end="url(#ar)"/>
+
+      <text class="dl" x="20" y="352">SIDEBANDS FROM THE iRULE</text>
+      <rect class="dbox" x="20" y="364" width="290" height="52" rx="5"/><text class="dt" x="165" y="386" text-anchor="middle">Key introspection</text><text class="ds" x="165" y="403" text-anchor="middle">your key service · {"active":true,"sub"}</text>
+      <rect class="dbox" x="340" y="364" width="300" height="52" rx="5"/><text class="dt" x="490" y="386" text-anchor="middle">Guardrail scan</text><text class="ds" x="490" y="403" text-anchor="middle">calypso-relay → F5 AI Guardrails</text>
+      <rect class="dbox" x="670" y="364" width="310" height="52" rx="5"/><text class="dt" x="825" y="386" text-anchor="middle">frontier-proxy (listener :8002)</text><text class="ds" x="825" y="403" text-anchor="middle">signs calls to Amazon Bedrock</text>
+      <path class="ln d" d="M300 304 L180 360" marker-end="url(#ar)"/>
+      <path class="ln d" d="M360 304 L470 360" marker-end="url(#ar)"/>
+      <path class="ln d" d="M440 304 Q620 330 800 360" marker-end="url(#ar)"/>
+    </svg>
+  </div>
+</section>
+
+<!-- ============ OWNERSHIP ============ -->
+<section class="s" id="owners">
+  <div class="head"><span class="eyebrow">Production split</span><h2>Who owns what</h2></div>
+  <div class="prose"><p>Everything the lab did, sorted by who runs it in production.</p></div>
+  <div class="grid2">
+    <div class="card"><h3>Lambda side</h3><ul class="plain">
+      <li>API gateway: route <code>/api/v1/inference-*</code> and <code>/api/v1/network-firewall-*</code> to the adapter on :8080, after Lambda's own key check</li>
+      <li>Key service that answers the introspection contract</li>
+      <li>Instance inventory: model-server pods or relays labelled <code>lambda.ai/instance</code> and <code>lambda.ai/role</code>, and the instance list</li>
+      <li>Billing pipeline reading the usage records</li>
+      <li>Console section built on the contract (the lab portal is the reference UI)</li>
+      <li>AWS account for frontier models, and the Calypso project for guardrails</li>
+    </ul></div>
+    <div class="card"><h3>Adapter side (Helm chart)</h3><ul class="plain">
+      <li><code>bnk-inference-adapter</code>: owns the contract, renders Gateway API, GAIE and BNK objects, collects usage and firewall events</li>
+      <li><code>frontier-proxy</code>: OpenAI-compatible front for Bedrock</li>
+      <li><code>calypso-relay</code>: holds the guardrail token, so the iRule sideband stays plain HTTP to an IP</li>
+      <li>RBAC scoped to <code>lambda-ie</code> and <code>f5-bnk</code>, NetworkPolicy, a 200Mi PVC</li>
+      <li>Values: VIP range, sideband URLs as ClusterIPs, prices, the usage flush token</li>
+    </ul></div>
+    <div class="card"><h3>BNK side (unchanged)</h3><ul class="plain">
+      <li>BNK 2.4 with the Gateway API and GAIE CRDs</li>
+      <li>GatewayClass <code>f5-gateway-class</code> for the CNEInstance</li>
+      <li><code>lambda-ie</code> in <code>CNEInstance.spec.eppNamespaces</code></li>
+      <li>F5 registry pull secret copied into <code>lambda-ie</code></li>
+      <li>A routable VIP range for endpoint addresses</li>
+    </ul></div>
+  </div>
+</section>
+
+<!-- ============ LAB VS PROD ============ -->
+<section class="s" id="labprod">
+  <div class="head"><span class="eyebrow">What changes</span><h2>Lab vs production</h2></div>
+  <div class="prose"><p>The lab stands in for parts of Lambda's stack. The BNK objects, the adapter and the contracts are the same in both. Everything around them changes.</p></div>
+  <div class="scroll tbl"><table>
+    <thead><tr><th>Concern</th><th>In the lab</th><th>In production</th></tr></thead>
+    <tbody>
+      <tr><td>BNK install</td><td><code>bnk-deploy</code> on a 3-node kubeadm cluster, gretap overlay, TMM on a software node</td><td>Your BNK 2.4 install (host or BlueField DPU), real VLANs and self-IPs</td></tr>
+      <tr><td>Instances</td><td>A GPU provisioner creates GCP T4 VMs and relay pods. A ConfigMap lists them.</td><td>Your inventory writes the instance list and labels model-server pods (or relays)</td></tr>
+      <tr><td>API keys</td><td><code>lambda-api-mock</code> issues keys and answers <code>/internal/v1/introspect</code></td><td>Your key service answers the same introspection contract</td></tr>
+      <tr><td>API routing</td><td>nginx in the console container routes <code>/api/v1/inference-*</code> to the adapter</td><td>Your API gateway routes the same two prefixes, after its own checks</td></tr>
+      <tr><td>Console</td><td>React portal that replicates the Lambda console</td><td>Your console calls the same paths; the portal is a reference UI</td></tr>
+      <tr><td>Guardrails</td><td>calypso-relay with the track's Calypso token, or a mock scanner</td><td>calypso-relay with your F5 AI Guardrails project</td></tr>
+      <tr><td>Frontier models</td><td>frontier-proxy with the sandbox AWS account</td><td>frontier-proxy with your AWS account, or another OpenAI-compatible provider</td></tr>
+      <tr><td>Usage</td><td>SQLite in the adapter, shown in the usage view</td><td>Same records, drained into your billing pipeline</td></tr>
+      <tr><td>Images</td><td>Re-pushed <code>0.1.0</code>, <code>pullPolicy: Always</code></td><td>Mirrored into your registry, pinned by digest</td></tr>
+      <tr><td>TMM watchdog</td><td><code>TMM_WATCHDOG=1</code> restarts a stalled TMM</td><td><code>0</code>: the adapter reports, your on-call decides</td></tr>
+      <tr><td>Placement</td><td>Everything pinned to the <code>app: workload</code> node so TMM reaches it</td><td>Any node TMM can reach on 5514/TCP, 5515/UDP and the sideband ports</td></tr>
+    </tbody>
+  </table></div>
+  <div class="grid2">
+    <div class="card"><h3>The iRule has no DNS and no TLS</h3><p>BNK iRules open sidebands as plain TCP to an IP. Give the introspection and guardrail URLs as <code>http://&lt;ClusterIP&gt;:&lt;port&gt;/path</code>, the form the lab ran. The target must speak plain HTTP and be reachable from TMM. Anything HTTPS gets a small relay in the cluster, which is why calypso-relay and frontier-proxy exist.</p></div>
+    <div class="card"><h3>The Kubernetes objects are the truth</h3><p>The adapter keeps no data-path state. Gateways, routes, pools and iRules are the state of every endpoint. SQLite holds only policy config, usage records and benchmark runs. Delete endpoints through the API, and never uninstall the chart with endpoints still running.</p></div>
+  </div>
+</section>
+
+<!-- ============ CONTRACT ============ -->
+<section class="s" id="contract">
+  <div class="head"><span class="eyebrow">OpenAPI 3.1</span><h2>The contract</h2></div>
+  <div class="prose stack">
+    <p>There are two contracts, one per API. The <strong>Inference API</strong> covers endpoints, policies, usage and benchmarks. The <strong>Network firewall API</strong> covers policies, address and port lists, log destinations and events. Both are proposed extensions of the Lambda Cloud API v1.10.0 and follow its conventions on purpose, so they can sit in the same spec:</p>
+    <ul class="plain">
+      <li>Resources under <code>/api/v1/inference-endpoints</code>, actions under <code>/api/v1/inference-endpoint-operations/…</code>. That's the same split as <code>instances</code> and <code>instance-operations</code>.</li>
+      <li>Every response is wrapped in <code>{"data": …}</code> and every error in <code>{"error": {"code", "message", "suggestion"}}</code>, using Lambda's codes (<code>global/invalid-api-key</code>, <code>global/object-does-not-exist</code>, <code>global/invalid-parameters</code>).</li>
+      <li>Bearer keys come from the same API keys page.</li>
+    </ul>
+    <p>The one addition outside that pattern is <code>PATCH …/policies/{kind}</code>. BNK enforces enabled policies in the data path in a fixed order: <code>api_auth</code> → <code>guardrails</code> → <code>token_quota</code> → <code>ai_load_balancing</code>.</p>
+  </div>
+
+  <div class="scroll tbl">
+    <table>
+      <thead><tr><th>Inference API path</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td class="m"><span class="verb GET">GET</span><span class="verb POST">POST</span>/api/v1/inference-endpoints</td><td>List endpoints · create one over a set of instances</td></tr>
+        <tr><td class="m"><span class="verb GET">GET</span><span class="verb POST">POST</span><span class="verb DELETE">DELETE</span>/api/v1/inference-endpoints/{id}</td><td>Details (including <code>kubernetes_objects</code>) · update name or instances · delete</td></tr>
+        <tr><td class="m"><span class="verb PATCH">PATCH</span>/api/v1/inference-endpoints/{id}/policies/{kind}</td><td>Turn on, turn off or configure one policy</td></tr>
+        <tr><td class="m"><span class="verb GET">GET</span>/api/v1/inference-endpoints/{id}/usage</td><td>Token usage per user and model</td></tr>
+        <tr><td class="m"><span class="verb GET">GET</span>/api/v1/inference-endpoints/{id}/utilization</td><td>GPU utilization per instance</td></tr>
+        <tr><td class="m"><span class="verb GET">GET</span>/api/v1/inference-endpoints/{id}/benchmarks</td><td>Benchmark runs, latest first</td></tr>
+        <tr><td class="m"><span class="verb POST">POST</span>/api/v1/inference-endpoint-operations/benchmark</td><td>Run round-robin vs cache-aware (NVIDIA AIPerf)</td></tr>
+        <tr><td class="m"><span class="verb POST">POST</span>/api/v1/inference-endpoint-operations/reset-usage</td><td>Reset usage counters and quotas for an endpoint</td></tr>
+        <tr><td class="m"><span class="verb POST">POST</span>/api/v1/inference-endpoint-operations/chat</td><td>Playground: one chat request through the endpoint's real address, and a report of what BNK did</td></tr>
+        <tr><td class="m"><span class="verb GET">GET</span>/api/v1/inference-gateway/status</td><td>Adapter mode and data-plane health</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>Policy kinds</h3>
+      <p><code>ai_load_balancing</code>, <code>token_quota</code>, <code>guardrails</code>, <code>api_auth</code>, <code>model_schedule</code>, <code>network_firewall</code>. Each moves through <code>off</code> → <code>applying</code> → <code>on</code> (or <code>error</code> with a reason).</p>
+    </div>
+    <div class="card">
+      <h3>Chat outcomes</h3>
+      <p><code>served</code>, <code>downgraded</code>, <code>auth_rejected</code>, <code>guardrail_blocked</code>, <code>quota_blocked</code>, <code>error</code>. Gateway refusals come back as results with 200, not as API errors.</p>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="code"><div class="label"><span>TokenQuotaConfig</span><button class="copy" type="button">Copy</button></div><pre>TokenQuotaConfig:
+  type: object
+  required: [tokens_per_user, fallback_model]
+  properties:
+    tokens_per_user: {type: integer, minimum: 50, maximum: 10000000}
+    fallback_model:  {type: string, examples: ["Qwen/Qwen2.5-1.5B-Instruct"]}
+    mode:
+      enum: [downgrade, block]
+      default: downgrade
+<span class="c"># downgrade: over-budget requests go to fallback_model
+#   (307 to the endpoint's fallback port when AI LB is on)
+# block: over-budget requests get 429 global/quota-exceeded</span></pre></div>
+    <div class="code"><div class="label"><span>Calling it</span><button class="copy" type="button">Copy</button></div><pre>curl -s -X PATCH \
+  $LAMBDA_API/api/v1/inference-endpoints/$EP/policies/token_quota \
+  -H "Authorization: Bearer $LAMBDA_API_KEY" \
+  -H 'Content-Type: application/json' \
+  -d '{"enabled":true,"config":{
+        "tokens_per_user":200,
+        "fallback_model":"Qwen/Qwen2.5-1.5B-Instruct",
+        "mode":"downgrade"}}'
+
+<span class="c"># error envelope, same as the rest of the Lambda API</span>
+{"error":{"code":"global/object-does-not-exist",
+          "message":"…","suggestion":"…"}}</pre></div>
+  </div>
+
+  <div class="scroll tbl">
+    <table>
+      <thead><tr><th>Network firewall API path</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td class="m">/api/v1/network-firewall-policies[/{id}]</td><td>List, create, get, update, delete firewall policies</td></tr>
+        <tr><td class="m">/api/v1/network-firewall-policies/{id}/rule-hits</td><td>Matches per rule over the last 24 hours</td></tr>
+        <tr><td class="m">/api/v1/network-firewall-address-lists[/{id}]</td><td>Reusable address lists</td></tr>
+        <tr><td class="m">/api/v1/network-firewall-port-lists[/{id}]</td><td>Reusable port lists</td></tr>
+        <tr><td class="m">/api/v1/network-firewall-log-destinations[/{id}]</td><td>Where matches are logged</td></tr>
+        <tr><td class="m">/api/v1/network-firewall-events</td><td>Logged firewall matches, newest first</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <details>
+    <summary><span>Full contract: inference-gateway.openapi.yaml</span><span class="sub">{{INF_LINES}} lines</span></summary>
+    <div class="inner"><div class="code"><div class="label"><span>contracts/inference-gateway.openapi.yaml</span><button class="copy" type="button">Copy</button></div><pre>{{INF_SPEC}}</pre></div></div>
+  </details>
+  <details>
+    <summary><span>Full contract: network-firewall.openapi.yaml</span><span class="sub">{{FW_LINES}} lines</span></summary>
+    <div class="inner"><div class="code"><div class="label"><span>contracts/network-firewall.openapi.yaml</span><button class="copy" type="button">Copy</button></div><pre>{{FW_SPEC}}</pre></div></div>
+  </details>
+</section>
+
+<!-- ============ ENVELOPES ============ -->
+<section class="s" id="envelopes">
+  <div class="head"><span class="eyebrow">Wire shapes</span><h2>Envelopes and contracts</h2></div>
+  <div class="prose"><p>These are the exact shapes on the wire. Lambda's API gateway, console and CLI use them unchanged, because they match the existing Lambda Cloud API v1.10.0.</p></div>
+  <div class="grid2">
+    <div class="code"><div class="label"><span>Success envelope</span><button class="copy" type="button">Copy</button></div><pre>HTTP/1.1 200 OK
+{"data": &lt;PAYLOAD&gt;}
+
+<span class="c"># list</span>
+{"data": [ {InferenceEndpoint}, … ]}</pre></div>
+    <div class="code"><div class="label"><span>Error envelope (ApiError)</span><button class="copy" type="button">Copy</button></div><pre>HTTP/1.1 404 Not Found
+{"error": {
+   "code":       "global/object-does-not-exist",
+   "message":    "Inference endpoint ie-… not found",
+   "suggestion": "List endpoints with GET /api/v1/inference-endpoints",  <span class="c"># optional</span>
+   "request_id": "…"                                                     <span class="c"># optional</span>
+}}</pre></div>
+  </div>
+  <div class="scroll tbl">
+    <table>
+      <thead><tr><th>HTTP</th><th>error.code</th><th>When</th></tr></thead>
+      <tbody>
+        <tr><td class="m">400</td><td class="m">global/invalid-parameters</td><td>Body or path fails the schema (for example <code>tokens_per_user</code> &lt; 50)</td></tr>
+        <tr><td class="m">401</td><td class="m">global/invalid-api-key</td><td>Missing or unknown Bearer key (introspection says <code>active:false</code>)</td></tr>
+        <tr><td class="m">403</td><td class="m">global/forbidden</td><td>Valid key, but the user isn't an admin and the call changes something</td></tr>
+        <tr><td class="m">404</td><td class="m">global/object-does-not-exist</td><td>Unknown endpoint or instance id</td></tr>
+        <tr><td class="m">409</td><td class="m">global/duplicate</td><td>An endpoint with that name already exists</td></tr>
+        <tr><td class="m">409</td><td class="m">global/conflict</td><td>The change collides with the current state (for example a benchmark already running)</td></tr>
+        <tr><td class="m">429</td><td class="m">global/quota-exceeded</td><td>Data path: over the token budget with <code>token_quota</code> mode <code>block</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="grid2">
+    <div class="code"><div class="label"><span>InferenceEndpoint (the "data" of GET /inference-endpoints/{id})</span><button class="copy" type="button">Copy</button></div><pre>{"data": {
+  "id": "ie-3f9a1c0b7d2e",
+  "name": "chat-prod",                       <span class="c"># ^[a-z0-9-]{1,40}$</span>
+  "instance_ids": ["0920582c…"],
+  "address": "http://172.16.201.110:8000",   <span class="c"># the BNK VIP</span>
+  "status": "active",    <span class="c"># provisioning | active | degraded | error | deleting</span>
+  "status_reason": null,
+  "models": ["Qwen/Qwen2.5-7B-Instruct-AWQ", "us.amazon.nova-pro-v1:0"],
+  "frontier_models": ["us.amazon.nova-pro-v1:0"],
+  "frontier_address": "http://172.16.201.111:8002",
+  "policies": [                              <span class="c"># always all 6 kinds</span>
+    {"kind": "api_auth", "enabled": true, "status": "on",
+     "status_reason": null, "config": {}},
+    {"kind": "token_quota", "enabled": true, "status": "on",
+     "config": {"tokens_per_user": 200,
+                "fallback_model": "Qwen/Qwen2.5-1.5B-Instruct",
+                "mode": "downgrade"}},
+    …
+  ],
+  "created": "2026-11-21T09:12:44Z",
+  "kubernetes_objects": [
+    {"api_version": "gateway.networking.k8s.io/v1", "kind": "Gateway",
+     "name": "ie-3f9a1c0b7d2e-gw", "namespace": "f5-bnk"},
+    …
+  ]
+}}</pre></div>
+    <div class="stack" style="min-width:0">
+      <div class="code"><div class="label"><span>Create request / response</span><button class="copy" type="button">Copy</button></div><pre>POST /api/v1/inference-endpoints
+Authorization: Bearer &lt;key&gt;
+{"name": "chat-prod", "instance_ids": ["0920582c…", "7b1e…"]}
+
+200 {"data": {…InferenceEndpoint, "status": "provisioning"}}</pre></div>
+      <div class="code"><div class="label"><span>Policy PATCH request / response</span><button class="copy" type="button">Copy</button></div><pre>PATCH /api/v1/inference-endpoints/{id}/policies/guardrails
+{"enabled": true}
+
+200 {"data": {"kind": "guardrails", "enabled": true,
+              "status": "applying", "status_reason": null,
+              "config": {}}}
+<span class="c"># poll GET /inference-endpoints/{id} until status "on"</span></pre></div>
+      <div class="code"><div class="label"><span>ChatResult (playground operation)</span><button class="copy" type="button">Copy</button></div><pre>{"data": {
+  "outcome": "guardrail_blocked",  <span class="c"># served | downgraded | auth_rejected |</span>
+                                   <span class="c"># guardrail_blocked | quota_blocked | error</span>
+  "status_code": 200, "latency_ms": 212.4, "ttft_ms": null,
+  "content": null, "model": null, "instance_id": null, "user": "bob",
+  "usage": null,
+  "gateway_headers": {"X-Guardrail": "blocked", "X-BNK-User": "bob"}
+}}</pre></div>
+    </div>
+  </div>
+
+  <div class="prose stack"><h3>The sideband contracts</h3><p>BNK talks to three services from inside the iRule. These are the only integration points on the data path, and each is plain HTTP or TCP to an IP address.</p></div>
+  <div class="scroll tbl">
+    <table>
+      <thead><tr><th>Contract</th><th>Who calls whom</th><th>Shape</th></tr></thead>
+      <tbody>
+        <tr><td class="m">Key introspection</td><td>iRule (api_auth) and adapter → Lambda key service</td><td class="m">POST {"token":"&lt;key&gt;"} → 200 {"active":true,"sub":"alice","role":"admin"|"member"} or {"active":false}. Errors fail closed.</td></tr>
+        <tr><td class="m">Guardrail scan</td><td>iRule (guardrails) → calypso-relay → F5 AI Guardrails</td><td class="m">POST /backend/v1/scans (Calypso-compatible) → allow or block. Errors fail closed.</td></tr>
+        <tr><td class="m">Usage records</td><td>TMM → adapter collector, TCP :5514</td><td class="m">v1|endpoint|user|model|prompt|completion|total|outcome|member|status|epoch_ms, one line per request. Flushes need the X-BNK-Flush token.</td></tr>
+        <tr><td class="m">Firewall events</td><td>TMM → adapter collector, UDP :5515</td><td class="m">Syslog lines for rule matches, served back by GET /network-firewall-events</td></tr>
+        <tr><td class="m">Frontier models</td><td>BNK listener :8002 → frontier-proxy → Amazon Bedrock</td><td class="m">OpenAI /v1/chat/completions in, SigV4-signed Bedrock call out. The same iRule applies.</td></tr>
+        <tr><td class="m">Audit webhook (optional)</td><td>adapter → Lambda audit service</td><td class="m">POST to AUDIT_WEBHOOK_URL on every change, Bearer AUDIT_WEBHOOK_TOKEN</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ============ OBJECTS ============ -->
+<section class="s" id="objects">
+  <div class="head"><span class="eyebrow">What BNK does</span><h2>API call → BNK objects</h2></div>
+  <div class="prose stack">
+    <p>Gateways, iRules and NetPolicies live in namespace <code>f5-bnk</code>. Routes, Services, InferencePools and F5EPPs live in <code>lambda-ie</code>. Every object is labelled <code>lambda.ai/endpoint=&lt;id&gt;</code> and <code>app.kubernetes.io/managed-by=bnk-inference-adapter</code>, so one label selector finds everything an endpoint owns.</p>
+  </div>
+  <div class="scroll tbl">
+    <table>
+      <thead><tr><th>API call</th><th>What BNK creates or changes</th></tr></thead>
+      <tbody>
+        <tr><td class="m">POST /inference-endpoints</td><td>Gateway <code>ie-&lt;id&gt;-gw</code> (VIP from 172.16.201.110–129, listener <code>http</code> :8000), HTTPRoute <code>ie-&lt;id&gt;-route</code>, Service <code>ie-&lt;id&gt;-rr</code> (round-robin), InferencePool <code>ie-&lt;id&gt;-main</code> + F5EPP <code>ie-&lt;id&gt;-main-epp</code>, F5BigCneIrule + NetPolicy <code>ie-&lt;id&gt;-policy</code> (metering fragment, always bound)</td></tr>
+        <tr><td class="m">POST /inference-endpoints/{id}</td><td>Adds or removes the <code>lambda.ai/ie-&lt;id&gt;: main|fallback</code> label on the chosen relay pod templates. Pools and the Service follow by selector.</td></tr>
+        <tr><td class="m">DELETE /inference-endpoints/{id}</td><td>Removes every object labelled <code>lambda.ai/endpoint=&lt;id&gt;</code> and the endpoint's pod labels</td></tr>
+        <tr><td class="m">PATCH …/policies/ai_load_balancing</td><td>Repoints rule 1 of <code>ie-&lt;id&gt;-route</code> to InferencePool <code>ie-&lt;id&gt;-main</code> (on) or Service <code>ie-&lt;id&gt;-rr</code> (off)</td></tr>
+        <tr><td class="m">PATCH …/policies/token_quota<br>mode block</td><td>Re-renders the iRule with the quota fragment. Over-budget requests get 429 <code>global/quota-exceeded</code>. No extra objects.</td></tr>
+        <tr><td class="m">PATCH …/policies/token_quota<br>downgrade, AI LB off</td><td>InferencePool <code>ie-&lt;id&gt;-fallback</code> + F5EPP <code>ie-&lt;id&gt;-fallback-epp</code>, Service <code>ie-&lt;id&gt;-fb-rr</code> as rule 0 of <code>ie-&lt;id&gt;-route</code>, selected by the iRule <code>pool</code> command</td></tr>
+        <tr><td class="m">PATCH …/policies/token_quota<br>downgrade, AI LB on</td><td>Second Gateway listener <code>http-fb</code> :8001, HTTPRoute <code>ie-&lt;id&gt;-fb-route</code> → InferencePool <code>ie-&lt;id&gt;-fallback</code> + F5EPP, NetPolicy <code>ie-&lt;id&gt;-policy-fb</code>. BNK answers 307 to :8001 with <code>X-Quota: downgraded</code>.</td></tr>
+        <tr><td class="m">PATCH …/policies/model_schedule</td><td>Re-renders the iRule with the schedule fragment (TMM reads the hour). Off-peak goes through the same fallback objects as a downgrade, or to the frontier listener when the off-peak model is on Bedrock. <code>X-Schedule: peak | off_peak</code></td></tr>
+        <tr><td class="m">FRONTIER_MODELS (adapter setting)</td><td>Third Gateway listener <code>http-frontier</code> :8002, HTTPRoute <code>ie-&lt;id&gt;-frontier-route</code> → Service <code>frontier-proxy</code> (Amazon Bedrock), NetPolicy <code>ie-&lt;id&gt;-policy-frontier</code>. BNK answers 307 to :8002 with <code>X-Frontier: bedrock</code>.</td></tr>
+        <tr><td class="m">PATCH …/policies/guardrails</td><td>Re-renders the iRule with the guardrail fragment (sideband scan, fails closed)</td></tr>
+        <tr><td class="m">PATCH …/policies/api_auth</td><td>Re-renders the iRule with the auth fragment (sideband key introspection)</td></tr>
+        <tr><td class="m">POST …-operations/reset-usage</td><td>No objects. Clears the adapter's usage store and quota counters.</td></tr>
+        <tr><td class="m">POST …-operations/benchmark</td><td>Repoints rule 1 of <code>ie-&lt;id&gt;-route</code> between Service and InferencePool for each phase, then restores it</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="prose"><p>Check it against the cluster:</p></div>
+  <div class="code"><div class="label"><span>List what one endpoint owns, across both namespaces</span><button class="copy" type="button">Copy</button></div><pre>EP=$(curl -s $LAMBDA_API/api/v1/inference-endpoints -H "Authorization: Bearer $LAMBDA_API_KEY" \
+  | jq -r '([.data[] | select(.name == "chat-prod")] + .data)[0].id')
+kubectl get gateway,f5-big-cne-irules,netpolicies -n f5-bnk   -l lambda.ai/endpoint=$EP
+kubectl get httproute,inferencepool,f5-epps,svc   -n lambda-ie -l lambda.ai/endpoint=$EP
+
+<span class="c"># the API reports the same list, so a UI or support tool never needs cluster access</span>
+curl -s $LAMBDA_API/api/v1/inference-endpoints/$EP -H "Authorization: Bearer $LAMBDA_API_KEY" \
+  | jq -r '.data.kubernetes_objects[] | "\(.kind)\t\(.namespace)\t\(.name)"'</pre></div>
+
+  <details>
+    <summary><span>Rendered objects for one endpoint (AI load balancing on)</span><span class="sub">Gateway · Service · InferencePool · F5EPP · HTTPRoute · NetPolicy</span></summary>
+    <div class="inner"><p style="color:var(--muted);font-size:.92rem">From the adapter's golden test output. The iRule body is left out here; it's shown in full in the next section.</p><div class="code"><div class="label"><span>docs/samples/endpoint-objects.yaml</span><button class="copy" type="button">Copy</button></div><pre>{{MANIFESTS}}</pre></div></div>
+  </details>
+</section>
+
+<!-- ============ IRULE ============ -->
+<section class="s" id="irule">
+  <div class="head"><span class="eyebrow">Data path</span><h2>The iRule</h2></div>
+  <div class="prose stack">
+    <p>Policies you turn on produce one composite iRule per endpoint, <code>ie-&lt;id&gt;-policy</code>. It's rendered from fragments in a fixed order. Metering is always in it.</p>
+  </div>
+  <div class="order" aria-label="Fragment order">
+    <span class="frag">auth</span><span class="arr">→</span><span class="frag">guardrail</span><span class="arr">→</span><span class="frag">quota</span><span class="arr">→</span><span class="frag always">metering · always</span>
+  </div>
+  <div class="prose stack">
+    <p>A NetPolicy attaches it to the endpoint's listener:</p>
+  </div>
+  <div class="grid2">
+    <div class="code"><div class="label"><span>NetPolicy ie-&lt;id&gt;-policy</span><button class="copy" type="button">Copy</button></div><pre>kind: NetPolicy
+metadata:
+  name: ie-3f9a1c0b7d2e-policy
+  namespace: f5-bnk
+spec:
+  extensionRefs:
+  - group: k8s.f5net.com
+    kind: F5BigCneIrule
+    name: ie-3f9a1c0b7d2e-policy
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: ie-3f9a1c0b7d2e-gw
+    sectionName: http</pre></div>
+    <div class="code"><div class="label"><span>Read them on the cluster</span><button class="copy" type="button">Copy</button></div><pre><span class="c"># the iRule text</span>
+kubectl get f5-big-cne-irules $EP-policy -n f5-bnk \
+  -o jsonpath='{.spec.iRule}'; echo
+
+<span class="c"># the binding to the listener</span>
+kubectl get netpolicies $EP-policy -n f5-bnk \
+  -o jsonpath='{.spec}' | jq .</pre></div>
+  </div>
+
+  <div class="prose stack">
+    <h3>Usage record wire format</h3>
+    <p>The metering fragment queues one line per request in a TMM table, and the adapter flushes the queue over TCP. That line is the only billing contract:</p>
+  </div>
+  <div class="wire" aria-label="Usage record fields, pipe-separated">
+    <span><b>version</b><i>v1</i></span><span><b>endpoint</b><i>ie-3f9a1c0b7d2e</i></span><span><b>user</b><i>alice</i></span><span><b>model</b><i>Qwen/Qwen2.5-7B-Instruct-AWQ</i></span><span><b>prompt</b><i>412</i></span><span><b>completion</b><i>64</i></span><span><b>total</b><i>476</i></span><span><b>outcome</b><i>served</i></span><span><b>member</b><i>10.244.1.17:8000</i></span><span><b>status</b><i>200</i></span><span><b>epoch_ms</b><i>1763712000123</i></span>
+  </div>
+
+  <details>
+    <summary><span>Full rendered iRule: api_auth + metering</span><span class="sub">{{IRULE_LINES}} lines of TCL</span></summary>
+    <div class="inner"><p style="color:var(--muted);font-size:.92rem">Golden output with fixture addresses. Note the sideband calls: introspection to a ClusterIP (TMM can't resolve DNS), usage records over TCP to the adapter, and fail-closed handling when introspection errors.</p><div class="code"><div class="label"><span>docs/samples/irule-api-auth.tcl</span><button class="copy" type="button">Copy</button></div><pre>{{IRULE}}</pre></div></div>
+  </details>
+</section>
+
+<!-- ============ CHART ============ -->
+<section class="s" id="chart">
+  <div class="head"><span class="eyebrow">chart/</span><h2>The Helm chart</h2></div>
+  <div class="prose"><p>The chart installs a Deployment, Service, PersistentVolumeClaim, ServiceAccount, RBAC scoped to the two namespaces, and a NetworkPolicy. These are the values that matter:</p></div>
+  <div class="scroll tbl">
+    <table>
+      <thead><tr><th>Value</th><th>What it is</th></tr></thead>
+      <tbody>
+        <tr><td class="m">config.IE_NAMESPACE<br>config.GATEWAY_NAMESPACE</td><td>Where routes and pools live (<code>lambda-ie</code>), and where Gateways and iRules live (<code>f5-bnk</code>)</td></tr>
+        <tr><td class="m">config.VIP_RANGE</td><td>Addresses the adapter hands out to endpoints</td></tr>
+        <tr><td class="m">config.AUTH_INTROSPECT_URL</td><td>Your key introspection endpoint, called by the iRule</td></tr>
+        <tr><td class="m">config.ADAPTER_API_KEY_INTROSPECT_URL</td><td>Validates Bearer keys on the adapter's own API</td></tr>
+        <tr><td class="m">config.GUARDRAIL_URL</td><td>The scan service. In the lab: F5 AI Guardrails through calypso-relay (Calypso-compatible).</td></tr>
+        <tr><td class="m">config.FRONTIER_MODELS</td><td>Frontier models served through the frontier proxy (Amazon Bedrock). Empty means none.</td></tr>
+        <tr><td class="m">config.TOKEN_PRICES_USD_PER_1M</td><td>Price per model for the usage view's cost column (<code>model=price,…</code>)</td></tr>
+        <tr><td class="m">config.USAGE_COLLECTOR_ADDR</td><td>Where TMM sends usage records (TCP)</td></tr>
+        <tr><td class="m">config.FIREWALL_PLATFORM_CIDRS<br>config.FIREWALL_COLLECTOR_ADDR</td><td>Needed before an endpoint can turn on a network firewall: the adapter's own sources to the VIPs, and where TMM sends matches (UDP 5515)</td></tr>
+        <tr><td class="m">networkPolicy.tmmSelfIPs / tmmPods<br>networkPolicy.apiClients</td><td>Who may send usage records, and who may call the API</td></tr>
+        <tr><td class="m">usageFlushToken</td><td>Shared secret the adapter sends with a usage flush. The metering iRule only honours flushes that carry it.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="grid2">
+    <div class="code"><div class="label"><span>Production values.yaml (shape)</span><button class="copy" type="button">Copy</button></div><pre>mode: live
+config:
+  IE_NAMESPACE: lambda-ie
+  GATEWAY_NAMESPACE: f5-bnk
+  VIP_RANGE: "172.16.201.110-172.16.201.129"
+  AUTH_INTROSPECT_URL: "https://&lt;your-api&gt;/internal/v1/introspect"
+  ADAPTER_API_KEY_INTROSPECT_URL: "https://&lt;your-api&gt;/internal/v1/introspect"
+  GUARDRAIL_URL: "http://&lt;calypso-relay-ip&gt;:8080/backend/v1/scans"
+  FRONTIER_MODELS: "us.amazon.nova-pro-v1:0,us.amazon.nova-lite-v1:0"
+  TOKEN_PRICES_USD_PER_1M: "Qwen/Qwen2.5-7B-Instruct-AWQ=0.20,us.amazon.nova-pro-v1:0=1.60"
+  USAGE_COLLECTOR_ADDR: "&lt;ip&gt;:5514"</pre></div>
+    <div class="code"><div class="label"><span>Inspect what's running</span><button class="copy" type="button">Copy</button></div><pre>helm list -n lambda-ie
+helm get values bnk-inference-adapter -n lambda-ie
+kubectl get deploy/bnk-inference-adapter \
+  svc/bnk-inference-adapter \
+  networkpolicy/bnk-inference-adapter -n lambda-ie
+
+<span class="c"># render every object the chart installs</span>
+helm template bnk-inference-adapter \
+  ./chart -n lambda-ie \
+  -f values.yaml | grep -E '^(kind|  name):'</pre></div>
+  </div>
+  <div class="callout"><p>Any address the iRule calls must be plain HTTP or TCP and reachable from TMM. Give the introspection and guardrail URLs as ClusterIPs, filled in at install time, because BNK iRules can't resolve DNS.</p></div>
+  <details>
+    <summary><span>Chart defaults: values.yaml</span><span class="sub">{{VALUES_LINES}} lines, with comments</span></summary>
+    <div class="inner"><div class="code"><div class="label"><span>chart/values.yaml</span><button class="copy" type="button">Copy</button></div><pre>{{VALUES}}</pre></div></div>
+  </details>
+</section>
+
+<!-- ============ INSTALL ============ -->
+<section class="s" id="install">
+  <div class="head"><span class="eyebrow">Two ways in</span><h2>Install</h2></div>
+  <div class="tabs" role="tablist" aria-label="Install view">
+    <button class="tab" role="tab" id="tab-production" aria-controls="view-production" aria-selected="true" type="button" data-view="production">Production <span>INSTALL.md</span></button>
+    <button class="tab" role="tab" id="tab-lab" aria-controls="view-lab" aria-selected="false" type="button" data-view="lab">Try it in a lab <span>LAB.md</span></button>
+  </div>
+  <div class="view" role="tabpanel" id="view-production" aria-labelledby="tab-production">
+    <div class="callout"><p><strong>For Lambda's environment.</strong> Your BNK, your key service, your API gateway, your console and your billing. Every lab stand-in is replaced. Values come from <code>values-production.yaml</code>.</p></div>
+    <ol class="steps">
+    <li><h3>BNK 2.4 prerequisites <span class="owner">Platform</span></h3><div class="body">
+      <p>Two install-time details matter. <strong>Install the GAIE CRDs before BNK</strong>, or the controller never watches InferencePool. <strong>Set <code>eppNamespaces</code> to include <code>lambda-ie</code> at install time</strong>, because patching it later rolls the controller. Without it, endpoints go to <code>error</code> after 120 s.</p>
+      <div class="code"><div class="label"><span>GAIE CRDs first</span><button class="copy" type="button">Copy</button></div><pre>kubectl apply -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/v1.4.0/manifests.yaml</pre></div>
+      <div class="code"><div class="label"><span>check the cluster</span><button class="copy" type="button">Copy</button></div><pre>for r in gateways.gateway.networking.k8s.io httproutes.gateway.networking.k8s.io \
+         inferencepools.inference.networking.k8s.io f5-epps.inference.k8s.f5.com \
+         f5-big-cne-irules.k8s.f5net.com netpolicies.gateway.k8s.f5.com; do
+  kubectl get crd "$r" &gt;/dev/null 2&gt;&amp;1 &amp;&amp; echo "ok       $r" || echo "MISSING  $r"
+done
+kubectl get gatewayclass f5-gateway-class
+kubectl get cneinstance -n f5-bnk -o jsonpath='{.items[0].spec.eppNamespaces}{"\n"}'   <span class="c"># must list lambda-ie</span>
+kubectl get license.k8s.f5net.com -n f5-cne-core                                       <span class="c"># Active</span>
+kubectl get ds f5-tmm -n f5-bnk</pre></div>
+      <p>Plan a routable <strong>VIP range</strong> (one address per endpoint, two with frontier models) and know where TMM opens sidebands from. BNK 2.4 uses the TMM pod IP, so the NetworkPolicies admit TMM by pod label. The lab built BNK with <a href="https://github.com/iracic82/bnk-deploy">bnk-deploy</a>, which pins every version and handles these ordering traps.</p>
+    </div></li>
+
+    <li><h3>Namespace and pull secret <span class="owner">Platform</span></h3><div class="body">
+      <div class="code"><div class="label"><span>bash</span><button class="copy" type="button">Copy</button></div><pre>kubectl create namespace lambda-ie
+kubectl label namespace lambda-ie pod-security.kubernetes.io/enforce=baseline pod-security.kubernetes.io/warn=restricted
+kubectl get secret far-pull-secret -n f5-bnk -o json \
+  | jq 'del(.metadata.resourceVersion,.metadata.uid,.metadata.creationTimestamp,.metadata.ownerReferences)
+        | .metadata.namespace="lambda-ie"' \
+  | kubectl apply -f -</pre></div>
+    </div></li>
+
+    <li><h3>Publish instances <span class="owner">Lambda inventory</span></h3><div class="body">
+      <p>The adapter never creates model servers. Your inventory writes the ConfigMap <code>lambda-instances</code> and labels one Deployment per instance in <code>lambda-ie</code>. Pool members must share a namespace with the InferencePool. A model server outside the cluster gets a relay from <code>relay/</code>, which forwards the API on 8000 and vLLM's KV-event streams on 20080/20081 for cache-aware routing.</p>
+      <div class="grid2">
+      <div class="code"><div class="label"><span>instances.json in ConfigMap lambda-instances</span><button class="copy" type="button">Copy</button></div><pre>[{"id": "0920582c3f4e4b1d8a7c", "name": "gpu-1",
+  "status": "active",            <span class="c"># active or booting can join</span>
+  "tags": [
+    {"key": "source", "value": "gpu"},
+    {"key": "models",
+     "value": "Qwen/Qwen2.5-7B-Instruct-AWQ"}]}]
+<span class="c"># source: gpu | simulated (an endpoint can't mix)
+# models: first one is served and loads the tokenizer</span></pre></div>
+      <div class="code"><div class="label"><span>labels on each Deployment and its pods</span><button class="copy" type="button">Copy</button></div><pre>lambda.ai/instance: "0920582c3f4e4b1d8a7c"
+lambda.ai/role:     main          <span class="c"># or fallback</span>
+lambda.ai/model:    qwen-qwen2-5-7b-instruct-awq
+
+<span class="c"># the adapter adds and owns this one:
+# lambda.ai/ie-&lt;endpoint-id&gt;: main | fallback</span></pre></div>
+      </div>
+    </div></li>
+
+    <li><h3>Key introspection <span class="owner">Lambda identity</span></h3><div class="body">
+      <p>One contract, two callers. The adapter checks API keys with it (HTTPS is fine). The auth iRule checks data-path keys from TMM (plain HTTP, reachable from TMM). <code>sub</code> is who usage is metered against, and <code>role</code> decides who may change things. Errors and 3 s timeouts fail closed. An HTTPS-only key service gets a plain-HTTP proxy in <code>lambda-ie</code>, locked to TMM and the adapter, called by ClusterIP.</p>
+      <div class="code"><div class="label"><span>contract</span><button class="copy" type="button">Copy</button></div><pre>POST /introspect   {"token": "&lt;key&gt;"}
+200 {"active":true,"sub":"&lt;user&gt;","role":"admin"|"member"}
+200 {"active":false}</pre></div>
+      <p><code>manifests/introspect-stub.yaml</code> answers this from a Secret, for trying the install before your key service is wired. Don't run it in production.</p>
+    </div></li>
+
+    <li><h3>Helpers: guardrails and frontier models <span class="owner">Platform</span></h3><div class="body">
+      <p>Both run the adapter image with a different entry point. Each one spends a paid credential, so its NetworkPolicy admits only TMM and the adapter. <code>CALYPSO_PROJECT</code> must be the project UUID, not its name. Prefer workload identity over static AWS keys where you can.</p>
+      <div class="code"><div class="label"><span>bash</span><button class="copy" type="button">Copy</button></div><pre>kubectl -n lambda-ie create secret generic calypso-api \
+  --from-literal=CALYPSO_API_TOKEN='&lt;token&gt;' \
+  --from-literal=CALYPSO_URL=https://us1.calypsoai.app \
+  --from-literal=CALYPSO_PROJECT='&lt;project uuid&gt;'
+kubectl apply -f manifests/calypso-relay.yaml
+
+kubectl -n lambda-ie create secret generic frontier-aws \
+  --from-literal=AWS_ACCESS_KEY_ID='&lt;id&gt;' --from-literal=AWS_SECRET_ACCESS_KEY='&lt;secret&gt;' \
+  --from-literal=AWS_DEFAULT_REGION=us-east-1 --from-literal=BEDROCK_REGION=us-east-1
+kubectl -n lambda-ie create configmap frontier-models \
+  --from-literal=FRONTIER_MODELS=us.amazon.nova-pro-v1:0,us.amazon.nova-lite-v1:0
+kubectl apply -f manifests/frontier-proxy.yaml</pre></div>
+    </div></li>
+
+    <li><h3>Install the adapter <span class="owner">Platform</span></h3><div class="body">
+      <p>Start from <code>values-production.yaml</code>. Every line marked <code>CHANGE</code> needs your value. The usage flush token is required: without it, usage never leaves TMM.</p>
+      <div class="code"><div class="label"><span>bash</span><button class="copy" type="button">Copy</button></div><pre>kubectl -n lambda-ie create secret generic bnk-adapter \
+  --from-literal=USAGE_FLUSH_TOKEN="$(head -c 32 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 40)"
+KEY_IP="$(kubectl get svc &lt;your-introspect-proxy&gt; -n lambda-ie -o jsonpath='{.spec.clusterIP}')"
+CALYPSO_IP="$(kubectl get svc calypso-relay -n lambda-ie -o jsonpath='{.spec.clusterIP}')"
+helm upgrade --install bnk-inference-adapter ./chart -n lambda-ie -f values-production.yaml \
+  --set config.AUTH_INTROSPECT_URL="http://${KEY_IP}:8080/introspect" \
+  --set config.GUARDRAIL_URL="http://${CALYPSO_IP}:8080/backend/v1/scans" \
+  --wait --timeout 5m
+
+kubectl -n lambda-ie port-forward svc/bnk-inference-adapter 8080:8080 &amp;
+curl -s localhost:8080/api/v1/inference-gateway/status -H "Authorization: Bearer $ADMIN_KEY"
+<span class="c"># {"data":{"mode":"live","data_plane_healthy":true, ...}}</span></pre></div>
+      <details><summary><span>values-production.yaml</span><span class="sub">{{PRODVALS_LINES}} lines</span></summary><div class="inner"><div class="code"><div class="label"><span>values-production.yaml</span><button class="copy" type="button">Copy</button></div><pre>{{PRODVALS}}</pre></div></div></details>
+    </div></li>
+
+    <li><h3>Route the API <span class="owner">Lambda API gateway</span></h3><div class="body">
+      <div class="scroll tbl"><table><thead><tr><th>Prefix</th><th>Upstream</th></tr></thead><tbody>
+        <tr><td class="m">/api/v1/inference-*</td><td class="m">bnk-inference-adapter.lambda-ie.svc:8080</td></tr>
+        <tr><td class="m">/api/v1/network-firewall-*</td><td class="m">bnk-inference-adapter.lambda-ie.svc:8080</td></tr>
+      </tbody></table></div>
+      <ul class="plain">
+        <li>Forward <code>Authorization</code> unchanged. The adapter introspects it.</li>
+        <li>Don't buffer <code>…/inference-endpoint-operations/chat</code>, and allow a 300 s read timeout.</li>
+        <li>Never expose ports 5514 and 5515 or <code>/introspect</code> outside the cluster.</li>
+      </ul>
+      <div class="code"><div class="label"><span>nginx equivalent (frontend/nginx.reference.conf)</span><button class="copy" type="button">Copy</button></div><pre>location /api/v1/inference- {
+    proxy_pass http://bnk-inference-adapter.lambda-ie.svc:8080;
+    proxy_set_header Authorization $http_authorization;
+    proxy_buffering off;          <span class="c"># streamed chat</span>
+    proxy_read_timeout 300s;
+}
+location /api/v1/network-firewall- {
+    proxy_pass http://bnk-inference-adapter.lambda-ie.svc:8080;
+    proxy_set_header Authorization $http_authorization;
+}</pre></div>
+    </div></li>
+
+    <li><h3>Wire the console <span class="owner">Lambda frontend</span></h3><div class="body"><p>No new backend. The console calls the paths above and reads the same envelopes as the rest of the Lambda API. See <a href="#frontend">Console integration</a>.</p></div></li>
+
+    <li><h3>Usage into billing <span class="owner">Lambda billing</span></h3><div class="body">
+      <p>The adapter stores every usage line and serves it as <code>GET /api/v1/inference-endpoints/{id}/usage</code>. For billing, poll that per endpoint, or point <code>USAGE_COLLECTOR_ADDR</code> at your own TCP collector that reads the same lines. Doing that takes the records away from the usage view and the token quotas, so keep the adapter as the collector unless you replace both. <code>POST …-operations/reset-usage</code> resets quotas at the start of a billing period.</p>
+    </div></li>
+
+    <li><h3>Verify <span class="owner">Platform</span></h3><div class="body">
+      <div class="code"><div class="label"><span>bash</span><button class="copy" type="button">Copy</button></div><pre>export ADAPTER_URL=http://localhost:8080   <span class="c"># or your API gateway origin</span>
+export ADMIN_KEY=&lt;admin key&gt;  MEMBER_KEY=&lt;member key&gt;
+export CONFORMANCE_INSTANCE_IDS=&lt;instance-id&gt;[,&lt;instance-id&gt;]
+bash scripts/conformance.sh                <span class="c"># one PASS/FAIL per check, exit 0 = all passed</span>
+bash scripts/api-walkthrough.sh            <span class="c"># the whole flow, step by step</span>
+kubectl get gateways,httproutes,inferencepools,f5-epps,f5-big-cne-irules,netpolicies,svc -A -l lambda.ai/endpoint=&lt;id&gt;</pre></div>
+      <details><summary><span>scripts/api-walkthrough.sh</span><span class="sub">{{WALK_LINES}} lines</span></summary><div class="inner"><div class="code"><div class="label"><span>scripts/api-walkthrough.sh</span><button class="copy" type="button">Copy</button></div><pre>{{WALK}}</pre></div></div></details>
+    </div></li>
+  </ol>
+  </div>
+  <div class="view" role="tabpanel" id="view-lab" aria-labelledby="tab-lab" hidden>
+    <div class="callout lab"><p><strong>For a quick trial on a test BNK cluster</strong>, before any Lambda system is wired: the adapter alone, a trial key service from <code>manifests/introspect-stub.yaml</code>, relays to any vLLM pods, and driven with <code>curl</code>. The target is a working endpoint in under an hour. Nothing here is meant for production: keys sit in a Secret, the API is open to the whole namespace, and guardrails and metering are off until you set them. Values come from <code>values-lab.yaml</code>.</p></div>
+    <ol class="steps">
+    <li><h3>Check the prerequisites</h3><div class="body">
+      <p>You need BNK 2.4 with the Gateway API and GAIE CRDs, a GatewayClass for your CNEInstance, and <code>lambda-ie</code> listed in <code>CNEInstance.spec.eppNamespaces</code>. You want six <code>ok</code> lines and a GatewayClass.</p>
+      <div class="code"><div class="label"><span>bash</span><button class="copy" type="button">Copy</button></div><pre>export KUBECONFIG=/etc/kubernetes/admin.conf
+for r in gateways.gateway.networking.k8s.io httproutes.gateway.networking.k8s.io \
+         inferencepools.inference.networking.k8s.io f5-epps.inference.k8s.f5.com \
+         f5-big-cne-irules.k8s.f5net.com netpolicies.gateway.k8s.f5.com; do
+  kubectl get crd "$r" &gt;/dev/null 2&gt;&amp;1 &amp;&amp; echo "ok       $r" || echo "MISSING  $r"
+done
+kubectl get gatewayclass f5-gateway-class
+kubectl get cneinstance -n f5-bnk -o jsonpath='{.items[0].spec.eppNamespaces}{"\n"}'
+kubectl get secret far-pull-secret -n f5-bnk</pre></div>
+      <p>BNK reads <code>eppNamespaces</code> at install time. If it doesn't include <code>lambda-ie</code>, patch it and wait for the controller to come back. Without it, endpoints stay <code>provisioning</code> and go to <code>error</code> after 120 s.</p>
+      <div class="code"><div class="label"><span>bash</span><button class="copy" type="button">Copy</button></div><pre>CNE="$(kubectl get cneinstance -n f5-bnk -o name | head -1)"
+kubectl patch -n f5-bnk "$CNE" --type merge -p '{"spec":{"eppNamespaces":["sim","lambda-ie"]}}'
+kubectl get pods -n f5-bnk -w      # until the controller pod is Running again</pre></div>
+    </div></li>
+
+    <li><h3>Create the namespace and copy the pull secret</h3><div class="body">
+      <p>The endpoint picker pulls its image from F5's registry, so <code>lambda-ie</code> needs a copy of the pull secret.</p>
+      <div class="code"><div class="label"><span>bash</span><button class="copy" type="button">Copy</button></div><pre>kubectl create namespace lambda-ie
+kubectl get secret far-pull-secret -n f5-bnk -o json \
+  | jq 'del(.metadata.resourceVersion,.metadata.uid,.metadata.creationTimestamp,.metadata.ownerReferences)
+        | .metadata.namespace="lambda-ie"' \
+  | kubectl apply -f -</pre></div>
+    </div></li>
+
+    <li><h3>Publish your instances</h3><div class="body">
+      <p>The adapter needs two things it never creates itself. One is the ConfigMap <code>lambda-instances</code> listing your instances. The other is one pod template per instance in <code>lambda-ie</code>, labelled <code>lambda.ai/instance</code> and <code>lambda.ai/role</code>. Your inventory system writes both. Pool members have to share a namespace with the InferencePool, so a model server that lives elsewhere gets a small TCP relay (<code>bnk-gpu-relay</code>) in <code>lambda-ie</code>.</p>
+      <div class="code"><div class="label"><span>one relay Deployment per instance</span><button class="copy" type="button">Copy</button></div><pre>apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: relay-&lt;instance-name&gt;
+  namespace: lambda-ie
+  labels: &amp;labels
+    app: lambda-relay
+    lambda.ai/instance: "&lt;instance-id&gt;"
+    lambda.ai/model: nousresearch-meta-llama-3-1-8b-instruct
+    lambda.ai/role: main
+spec:
+  replicas: 1
+  selector: {matchLabels: {lambda.ai/instance: "&lt;instance-id&gt;", lambda.ai/role: main}}
+  template:
+    metadata: {labels: *labels}
+    spec:
+      containers:
+        - name: relay
+          image: iracic82/bnk-gpu-relay:0.1.0
+          env: [{name: TARGET, value: "&lt;model-server-ip&gt;"}]
+          ports: [{containerPort: 8000, name: http}, {containerPort: 20080}, {containerPort: 20081}]
+          readinessProbe: {tcpSocket: {port: 8000}, periodSeconds: 5}</pre></div>
+      <div class="code"><div class="label"><span>the instance list (the adapter reads id, status and the source and models tags)</span><button class="copy" type="button">Copy</button></div><pre>kubectl create configmap lambda-instances -n lambda-ie --from-literal=instances.json='[
+  {"id":"&lt;instance-id&gt;","name":"gpu-1","status":"active",
+   "tags":[{"key":"source","value":"gpu"},
+           {"key":"models","value":"NousResearch/Meta-Llama-3.1-8B-Instruct"}]}
+]'</pre></div>
+    </div></li>
+
+    <li><h3>Point it at a key service</h3><div class="body">
+      <p>The adapter never stores keys. It asks a key service with one call, and that's the only identity contract the iRule has:</p>
+      <div class="code"><div class="label"><span>introspection contract</span><button class="copy" type="button">Copy</button></div><pre>POST /introspect   {"token": "&lt;key&gt;"}
+200 {"active":true,"sub":"&lt;user&gt;","role":"admin"|"member"}
+200 {"active":false}</pre></div>
+      <p><code>manifests/introspect-stub.yaml</code> is a 60-line server that answers exactly that from a Secret of keys you create. The adapter pod calls it by DNS name. The BNK auth iRule calls it by ClusterIP, because TMM can't resolve DNS.</p>
+      <div class="code"><div class="label"><span>bash</span><button class="copy" type="button">Copy</button></div><pre>export ADMIN_KEY="adm-$(head -c 24 /dev/urandom | base64 | tr -dc 'A-Za-z0-9')"
+export MEMBER_KEY="mem-$(head -c 24 /dev/urandom | base64 | tr -dc 'A-Za-z0-9')"
+kubectl -n lambda-ie create secret generic introspect-keys --dry-run=client -o yaml \
+  --from-literal=keys="$(printf '%s platform-admin admin\n%s alice member\n' "$ADMIN_KEY" "$MEMBER_KEY")" \
+  | kubectl apply -f -
+kubectl apply -f manifests/introspect-stub.yaml
+kubectl -n lambda-ie rollout status deploy/introspect-stub</pre></div>
+    </div></li>
+
+    <li><h3>Install the chart</h3><div class="body">
+      <p><code>values-lab.yaml</code> sets live mode, the adapter's introspection URL, the auth iRule's URL as the stub's ClusterIP (TMM has no DNS), a VIP range and the TMM self-IP. Guardrails and the usage collector stay off; those policies report <code>error</code> until you set <code>GUARDRAIL_URL</code> and <code>USAGE_COLLECTOR_ADDR</code>.</p>
+      <div class="code"><div class="label"><span>bash</span><button class="copy" type="button">Copy</button></div><pre>STUB_IP="$(kubectl get svc introspect-stub -n lambda-ie -o jsonpath='{.spec.clusterIP}')"
+helm upgrade --install bnk-inference-adapter ./chart -n lambda-ie -f values-lab.yaml \
+  --set config.AUTH_INTROSPECT_URL="http://${STUB_IP}:8080/introspect" --wait --timeout 5m
+kubectl -n lambda-ie port-forward svc/bnk-inference-adapter 8080:8080 &gt;/dev/null 2&gt;&amp;1 &amp;
+export ADAPTER_URL=http://localhost:8080
+curl -s "$ADAPTER_URL/api/v1/inference-gateway/status" -H "Authorization: Bearer $ADMIN_KEY"</pre></div>
+      <p>You want <code>"mode":"live"</code> and <code>"data_plane_healthy":true</code>. If it's <code>false</code>, check RBAC and the CRDs from step 1. A 401 means the adapter can't reach the key service or the key isn't in the Secret.</p>
+      <details><summary><span>values-lab.yaml</span><span class="sub">{{LABVALS_LINES}} lines</span></summary><div class="inner"><div class="code"><div class="label"><span>values-lab.yaml</span><button class="copy" type="button">Copy</button></div><pre>{{LABVALS}}</pre></div></div></details>
+    </div></li>
+
+    <li><h3>Create an endpoint</h3><div class="body">
+      <div class="code"><div class="label"><span>bash</span><button class="copy" type="button">Copy</button></div><pre>IDS_JSON='["&lt;instance-id&gt;"]'
+curl -s "$ADAPTER_URL/api/v1/inference-endpoints" -H "Authorization: Bearer $ADMIN_KEY" \
+  -H 'Content-Type: application/json' -d "{\"name\":\"adopt-demo\",\"instance_ids\":$IDS_JSON}" | jq .
+export IE_ID="$(curl -s "$ADAPTER_URL/api/v1/inference-endpoints" -H "Authorization: Bearer $ADMIN_KEY" \
+  | jq -r '.data[] | select(.name=="adopt-demo") | .id')"
+until curl -s "$ADAPTER_URL/api/v1/inference-endpoints/$IE_ID" -H "Authorization: Bearer $ADMIN_KEY" \
+      | jq -e '.data.status=="active"' &gt;/dev/null; do sleep 5; done; echo active
+kubectl get gateways,httproutes,inferencepools,f5-epps,f5-big-cne-irules,netpolicies,svc -A -l lambda.ai/endpoint=$IE_ID</pre></div>
+      <p>The member key can read all of this but gets 403 <code>global/forbidden</code> on any change.</p>
+    </div></li>
+
+    <li><h3>Turn on policies</h3><div class="body">
+      <p>Each <code>PATCH</code> returns the policy with status <code>applying</code>, which turns <code>on</code> once BNK accepts the change. Turn any policy off with <code>{"enabled":false}</code>.</p>
+      <div class="code"><div class="label"><span>bash</span><button class="copy" type="button">Copy</button></div><pre>pol() {  # pol KIND JSON
+  curl -s -X PATCH "$ADAPTER_URL/api/v1/inference-endpoints/$IE_ID/policies/$1" \
+    -H "Authorization: Bearer $ADMIN_KEY" -H 'Content-Type: application/json' -d "$2" | jq -c .data
+}
+pol ai_load_balancing '{"enabled":true}'
+pol api_auth          '{"enabled":true}'
+pol token_quota       '{"enabled":true,"config":{"tokens_per_user":2000,"fallback_model":"NousResearch/Meta-Llama-3.1-8B-Instruct","mode":"block"}}'</pre></div>
+    </div></li>
+
+    <li><h3>Chat through it</h3><div class="body">
+      <p>The chat operation sends one request to the endpoint's VIP and reports what BNK did with it. These outcomes come from BNK, not from the adapter.</p>
+      <div class="code"><div class="label"><span>bash</span><button class="copy" type="button">Copy</button></div><pre>chat() {  # chat KEY_FOR_THE_VIP
+  curl -s "$ADAPTER_URL/api/v1/inference-endpoint-operations/chat" -H "Authorization: Bearer $ADMIN_KEY" \
+    -H 'Content-Type: application/json' \
+    -d "{\"endpoint_id\":\"$IE_ID\",\"api_key\":\"$1\",\"messages\":[{\"role\":\"user\",\"content\":\"Say hi in five words.\"}],\"max_tokens\":16}" \
+    | jq -c '.data | {outcome, status_code, model, instance_id, latency_ms}'
+}
+chat "$MEMBER_KEY"      # outcome served, metered against alice
+chat "not-a-real-key"   # outcome auth_rejected: the iRule asked the key service and got active:false</pre></div>
+    </div></li>
+
+    <li><h3>Run the conformance script, then clean up</h3><div class="body">
+      <p><code>scripts/conformance.sh</code> runs every operation in the contract and prints one PASS or FAIL per check. Exit code 0 means everything passed. Delete endpoints before uninstalling: the adapter removes its Gateways and iRules, and nothing else will.</p>
+      <div class="code"><div class="label"><span>bash</span><button class="copy" type="button">Copy</button></div><pre>export CONFORMANCE_INSTANCE_IDS="&lt;instance-id&gt;[,&lt;instance-id&gt;…]"
+bash scripts/conformance.sh
+
+curl -s -X DELETE "$ADAPTER_URL/api/v1/inference-endpoints/$IE_ID" -H "Authorization: Bearer $ADMIN_KEY"
+helm uninstall bnk-inference-adapter -n lambda-ie</pre></div>
+    </div></li>
+  </ol>
+    <div class="card"><h3>Going from the lab to production</h3><p>Swap the trial key service for yours (step 4 of Production), install the helpers, lock <code>networkPolicy.apiClients</code> to your API gateway, set the usage flush token, and move to <code>values-production.yaml</code>. The endpoints, contracts and BNK objects stay the same.</p></div>
+  </div>
+</section>
+
+<!-- ============ FRONTEND ============ -->
+<section class="s" id="frontend">
+  <div class="head"><span class="eyebrow">frontend/</span><h2>Console integration</h2></div>
+  <div class="prose"><p>The lab console is a reference UI. These are the calls each screen makes and how often it refreshes. <code>frontend/</code> has the fetch client, the hooks and the types generated from the contracts.</p></div>
+  <div class="scroll tbl"><table>
+    <thead><tr><th>Screen</th><th>Calls</th><th>Refresh</th></tr></thead>
+    <tbody>
+      <tr><td>Endpoints list</td><td class="m">GET /api/v1/inference-endpoints</td><td>3 s while any endpoint or policy is busy</td></tr>
+      <tr><td>Create endpoint</td><td class="m">GET /api/v1/instances<br>POST /api/v1/inference-endpoints</td><td>on success</td></tr>
+      <tr><td>Endpoint detail</td><td class="m">GET /api/v1/inference-endpoints/{id}</td><td>3 s while busy</td></tr>
+      <tr><td>Edit · delete</td><td class="m">POST · DELETE /api/v1/inference-endpoints/{id}</td><td>refetch</td></tr>
+      <tr><td>Policies</td><td class="m">PATCH …/{id}/policies/{kind}</td><td>detail polls until status leaves <code>applying</code></td></tr>
+      <tr><td>Token usage</td><td class="m">GET …/{id}/usage<br>POST …-operations/reset-usage</td><td>10 s</td></tr>
+      <tr><td>GPU utilization</td><td class="m">GET …/{id}/utilization</td><td>5 s</td></tr>
+      <tr><td>Benchmark</td><td class="m">POST …-operations/benchmark<br>GET …/{id}/benchmarks</td><td>3 s while the latest run is running</td></tr>
+      <tr><td>Playground</td><td class="m">POST …-operations/chat</td><td>none</td></tr>
+      <tr><td>Header badge</td><td class="m">GET /api/v1/inference-gateway/status</td><td>30 s</td></tr>
+      <tr><td>Network firewall</td><td class="m">/api/v1/network-firewall-{policies, address-lists, port-lists, log-destinations, events}</td><td>on demand</td></tr>
+    </tbody>
+  </table></div>
+  <div class="grid2">
+    <div class="code"><div class="label"><span>frontend/src-api/client.ts (the envelope)</span><button class="copy" type="button">Copy</button></div><pre><span class="c">// success {data}; failure {error:{code,message,suggestion}}</span>
+const b = await res.json()
+if (!res.ok || b.error) {
+  const e = b.error ?? {}
+  throw new ApiError(res.status, e.code, e.message, e.suggestion)
+}
+return b.data
+
+<span class="c">// a member key gets 403 global/forbidden on changes:
+// disable the controls instead of erroring on every click</span>
+isForbidden(e) =&gt; e.code === 'global/forbidden'</pre></div>
+    <div class="stack" style="min-width:0">
+      <div class="card"><h3>Auth in the lab</h3><p>The browser never holds a key. The console's nginx injects one server-side, only for same-origin requests that carry <code>X-Lambda-Console: 1</code> and no <code>Authorization</code> header. A cross-site page can't send the custom header without a preflight, which nginx never approves.</p></div>
+      <div class="card"><h3>Auth in production</h3><p>Use the console's existing session. Whatever your API gateway turns it into, the adapter introspects the key and needs the right <code>sub</code> and <code>role</code> back.</p></div>
+      <div class="card"><h3>Types</h3><p>Generate with <code>npx openapi-typescript contracts/inference-gateway.openapi.yaml</code>. Gateway refusals in chat (<code>auth_rejected</code>, <code>guardrail_blocked</code>, <code>quota_blocked</code>) are 200 results, so show them as outcomes, not errors.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ OPS ============ -->
+<section class="s" id="ops">
+  <div class="head"><span class="eyebrow">Day 2</span><h2>Operating it</h2></div>
+  <div class="scroll tbl"><table>
+    <thead><tr><th>Look at</th><th>For</th></tr></thead>
+    <tbody>
+      <tr><td class="m">GET /api/v1/inference-gateway/status</td><td>Alert on <code>data_plane_healthy:false</code>: TMM stopped passing traffic, or the adapter can't read the cluster</td></tr>
+      <tr><td>Endpoint and policy <code>status_reason</code></td><td>Why something is in <code>error</code>, in BNK's words</td></tr>
+      <tr><td class="m">kubectl logs deploy/bnk-inference-adapter</td><td><code>apply failed for</code>, <code>reconcile pass failed</code>, <code>cannot read ConfigMap lambda-instances</code></td></tr>
+      <tr><td class="m">kubectl logs -n f5-bnk -l app=f5-tmm</td><td><code>BNK usage flush failed</code>, <code>Auth: introspection error, failing closed</code></td></tr>
+    </tbody>
+  </table></div>
+  <div class="grid2">
+    <div class="card"><h3>Backups</h3><p>Snapshot the PVC. The reconcile loop keeps cluster objects in line with the stored policy config, so a restored volume brings endpoints back to their last configuration.</p></div>
+    <div class="card"><h3>Upgrades</h3><p><code>helm upgrade</code> with a new image. The API is down for a few seconds (one replica, Recreate). The data path isn't, because BNK keeps serving what's already applied.</p></div>
+    <div class="card"><h3>Removing it</h3><p>Delete every endpoint through the API, then <code>helm uninstall</code>. The adapter removes its Gateways, routes, pools and iRules. Nothing else will.</p></div>
+  </div>
+</section>
+
+<!-- ============ KIT ============ -->
+<section class="s" id="kit">
+  <div class="head"><span class="eyebrow">Repository contents</span><h2>What's in the kit</h2></div>
+  <div class="scroll tbl"><table>
+    <thead><tr><th>Path</th><th>Contents</th></tr></thead>
+    <tbody>
+      <tr><td class="m">index.html</td><td>This guide</td></tr>
+      <tr><td class="m">INSTALL.md</td><td>The production install as plain text</td></tr>
+      <tr><td class="m">values-production.yaml</td><td>Helm values to start from</td></tr>
+      <tr><td class="m">chart/</td><td>Helm chart for bnk-inference-adapter</td></tr>
+      <tr><td class="m">contracts/</td><td>Inference Gateway and network firewall APIs (OpenAPI 3.1)</td></tr>
+      <tr><td class="m">manifests/</td><td>calypso-relay, frontier-proxy, and a trial key service</td></tr>
+      <tr><td class="m">relay/</td><td>TCP relay image for model servers outside the cluster</td></tr>
+      <tr><td class="m">frontend/</td><td>Console calls, fetch client, generated types, routing reference</td></tr>
+      <tr><td class="m">docs/bnk-objects.md</td><td>The BNK objects behind every call</td></tr>
+      <tr><td class="m">scripts/</td><td>conformance.sh and api-walkthrough.sh</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<footer>Built from the Lambda Cloud POC lab (F5 BIG-IP Next for Kubernetes 2.4). Contracts, chart, manifests, rendered objects and iRule are the files the lab runs. IPs and IDs in examples are fixtures. Apache-2.0.</footer>
+</div>
+
+<script>
+(function(){
+  var tabs=[].slice.call(document.querySelectorAll('.tab'));
+  function show(v,scroll){
+    tabs.forEach(function(t){var on=t.dataset.view===v;t.setAttribute('aria-selected',on);document.getElementById('view-'+t.dataset.view).hidden=!on});
+    if(scroll){document.getElementById('install').scrollIntoView()}
+  }
+  tabs.forEach(function(t){t.addEventListener('click',function(){show(t.dataset.view);try{history.replaceState(null,'','#'+(t.dataset.view==='lab'?'lab':'install'))}catch(e){}})});
+  function fromHash(){if(location.hash==='#lab'){show('lab',true)}}
+  fromHash();window.addEventListener('hashchange',fromHash);
+})();
+</script>
+<script>
+document.querySelectorAll('.copy').forEach(function(b){
+  b.addEventListener('click',function(){
+    var pre=b.closest('.code').querySelector('pre');
+    var t=pre.innerText;
+    var done=function(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy'},1400)};
+    var fallback=function(){var r=document.createRange();r.selectNodeContents(pre);var s=getSelection();s.removeAllRanges();s.addRange(r);b.textContent='Selected';setTimeout(function(){b.textContent='Copy'},1400)};
+    try{navigator.clipboard.writeText(t).then(done,fallback)}catch(e){fallback()}
+  });
+});
+</script>

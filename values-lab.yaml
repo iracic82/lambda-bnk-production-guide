@@ -1,0 +1,22 @@
+# Lab / trial values for bnk-inference-adapter: the adapter alone on a test BNK cluster, with the trial key
+# service from manifests/introspect-stub.yaml. Not for production (see values-production.yaml).
+#
+#   STUB_IP="$(kubectl get svc introspect-stub -n lambda-ie -o jsonpath='{.spec.clusterIP}')"
+#   helm upgrade --install bnk-inference-adapter ./chart -n lambda-ie -f values-lab.yaml \
+#     --set config.AUTH_INTROSPECT_URL="http://${STUB_IP}:8080/introspect" --wait --timeout 5m
+#
+# Guardrails and the usage collector are left out: those policies report `error` until you set GUARDRAIL_URL
+# and USAGE_COLLECTOR_ADDR (and the usage flush token).
+mode: live
+config:
+  IE_NAMESPACE: lambda-ie
+  GATEWAY_NAMESPACE: f5-bnk
+  VIP_RANGE: "172.16.201.110-172.16.201.129"        # change to a free range on your test cluster
+  ADAPTER_API_KEY_INTROSPECT_URL: "http://introspect-stub.lambda-ie.svc:8080/introspect"
+  AUTH_INTROSPECT_URL: ""                           # set with --set to the stub's ClusterIP (the iRule has no DNS), see above
+networkPolicy:
+  tmmSelfIPs: ["10.1.20.201/32"]                    # your TMM internal self-IP
+  tmmPods:
+    - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: f5-bnk}}
+      podSelector: {matchLabels: {app: f5-tmm}}
+  apiClients: [{podSelector: {}}]                   # anything in lambda-ie; kubectl port-forward goes through the kubelet

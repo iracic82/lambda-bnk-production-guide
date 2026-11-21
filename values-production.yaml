@@ -1,0 +1,93 @@
+# Production values for bnk-inference-adapter. Start here, not from chart/values.yaml.
+# Every line marked CHANGE needs your value. Everything else is a sensible production default.
+#
+#   helm upgrade --install bnk-inference-adapter ./chart -n lambda-ie -f values-production.yaml --wait
+#
+# Sideband addresses (AUTH_INTROSPECT_URL, GUARDRAIL_URL) are called by the BNK iRule from inside TMM, which
+# has no DNS and no TLS client. Give them as http://<ClusterIP>:<port>/path, the form the lab ran. The target
+# must speak plain HTTP and be reachable from TMM. Put a small in-cluster relay in front of anything that needs
+# HTTPS (the way calypso-relay fronts F5 AI Guardrails). Fill the IPs in at install time:
+#   KEY_IP="$(kubectl get svc <your-introspect-proxy> -n lambda-ie -o jsonpath='{.spec.clusterIP}')"
+#   CALYPSO_IP="$(kubectl get svc calypso-relay -n lambda-ie -o jsonpath='{.spec.clusterIP}')"
+#   helm upgrade --install ... -f values-production.yaml \
+#     --set config.AUTH_INTROSPECT_URL="http://${KEY_IP}:8080/introspect" \
+#     --set config.GUARDRAIL_URL="http://${CALYPSO_IP}:8080/backend/v1/scans"
+
+image:
+  repository: iracic82/bnk-inference-adapter   # CHANGE: mirror into your own registry
+  tag: "0.1.0"                                 # CHANGE: pin an immutable tag or digest
+  pullPolicy: IfNotPresent
+
+mode: live
+
+config:
+  IE_NAMESPACE: lambda-ie
+  GATEWAY_NAMESPACE: f5-bnk
+  VIP_RANGE: "172.16.201.110-172.16.201.129"   # CHANGE: routable range for endpoint addresses; one VIP per endpoint (two with frontier models)
+
+  # Identity. The iRule calls AUTH_INTROSPECT_URL for every data-path request when api_auth is on. The
+  # adapter calls ADAPTER_API_KEY_INTROSPECT_URL to check Bearer keys on its own API. Admin rights come from
+  # "role":"admin" in the introspection reply; ADMIN_USERS is only a fallback for replies without a role.
+  AUTH_INTROSPECT_URL: ""                                                               # CHANGE: http://<ClusterIP>:<port>/<path>, set with --set (see top)
+  ADAPTER_API_KEY_INTROSPECT_URL: "https://<your-key-service>/introspect"              # CHANGE: DNS name and HTTPS are fine here (the adapter is a normal client)
+  ADMIN_USERS: ""                                                                       # empty: roles come from the introspection reply only
+
+  # Guardrails: calypso-relay (manifests/calypso-relay.yaml) in front of F5 AI Guardrails.
+  GUARDRAIL_URL: ""                  # set with --set to http://<calypso-relay ClusterIP>:8080/backend/v1/scans (see top)
+
+  # Metering. TMM sends one usage line per request to this TCP address (this chart's own Service).
+  USAGE_COLLECTOR_ADDR: "bnk-inference-adapter.lambda-ie.svc:5514"
+  TOKEN_PRICES_USD_PER_1M: ""        # optional, e.g. "Qwen/Qwen2.5-7B-Instruct-AWQ=0.20,us.amazon.nova-pro-v1:0=1.60"
+
+  # Frontier models through frontier-proxy (manifests/frontier-proxy.yaml). Empty: open models only.
+  FRONTIER_MODELS: ""
+
+  # Change audit. Every create, update, delete and policy change is POSTed here (Bearer AUDIT_WEBHOOK_TOKEN).
+  AUDIT_WEBHOOK_URL: ""              # CHANGE: your audit service, or leave empty
+
+  # Network firewall. Both must be set before an endpoint can turn one on.
+  FIREWALL_PLATFORM_CIDRS: ""        # CHANGE: the adapter's own sources to the VIPs (pod CIDR, plus node IPs if pod egress is SNATed). Keep narrow: these bypass every customer rule.
+  FIREWALL_COLLECTOR_ADDR: "bnk-inference-adapter.lambda-ie.svc:5515"
+  FIREWALL_EVENTS_DAYS: "30"
+  FIREWALL_EVENTS_KEEP: "1000000"
+
+  TMM_WATCHDOG: "0"                  # never 1 in production: it reports TMM stalls; recovery is your on-call's call
+
+# kubectl -n lambda-ie create secret generic bnk-adapter \
+#   --from-literal=USAGE_FLUSH_TOKEN="$(head -c 32 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 40)" \
+#   --from-literal=AUDIT_WEBHOOK_TOKEN="<token your audit service expects>"
+usageFlushToken:
+  secretName: bnk-adapter
+  key: USAGE_FLUSH_TOKEN
+secretEnv: {}
+#  AUDIT_WEBHOOK_TOKEN: {secretName: bnk-adapter, key: AUDIT_WEBHOOK_TOKEN}
+
+# Usage records, policy config and benchmark runs live in SQLite here. One replica, Recreate strategy.
+# Back this volume up, or drain usage into your billing pipeline (INSTALL.md, "Usage into billing").
+persistence:
+  enabled: true
+  size: 2Gi
+  storageClass: ""                   # CHANGE: a class with snapshots
+
+service:
+  apiPort: 8080
+  usagePort: 5514
+  firewallEventsPort: 5515
+  type: ClusterIP
+
+resources:
+  requests: {cpu: 250m, memory: 512Mi}
+  limits: {memory: 2Gi}              # a benchmark round runs NVIDIA AIPerf as a subprocess (~1.2Gi peak)
+
+nodeSelector: {}                     # CHANGE if TMM can only reach pods on some nodes (it must reach 5514/5515)
+tolerations: []
+
+networkPolicy:
+  enabled: true
+  tmmSelfIPs: []                     # CHANGE if your BNK sends sidebands from the self-IP, e.g. ["10.1.20.201/32"]
+  tmmPods:                           # BNK 2.4 sends sidebands from the TMM pod IP
+    - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: f5-bnk}}
+      podSelector: {matchLabels: {app: f5-tmm}}
+  apiClients:                        # CHANGE: only your API gateway may call the adapter
+    - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: api-gateway}}
+      podSelector: {matchLabels: {app: api-gateway}}

@@ -1,0 +1,225 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: ie-3f9a1c0b7d2e-gw
+  namespace: f5-bnk
+  labels:
+    app.kubernetes.io/managed-by: bnk-inference-adapter
+    lambda.ai/endpoint: ie-3f9a1c0b7d2e
+spec:
+  gatewayClassName: f5-gateway-class
+  addresses:
+  - type: IPAddress
+    value: 172.16.201.110
+  listeners:
+  - name: http
+    protocol: HTTP
+    port: 8000
+    allowedRoutes:
+      namespaces:
+        from: All
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ie-3f9a1c0b7d2e-rr
+  namespace: lambda-ie
+  labels:
+    app.kubernetes.io/managed-by: bnk-inference-adapter
+    lambda.ai/endpoint: ie-3f9a1c0b7d2e
+spec:
+  selector:
+    lambda.ai/ie-3f9a1c0b7d2e: main
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+    protocol: TCP
+---
+apiVersion: inference.networking.k8s.io/v1
+kind: InferencePool
+metadata:
+  name: ie-3f9a1c0b7d2e-main
+  namespace: lambda-ie
+  labels:
+    app.kubernetes.io/managed-by: bnk-inference-adapter
+    lambda.ai/endpoint: ie-3f9a1c0b7d2e
+spec:
+  selector:
+    matchLabels:
+      lambda.ai/ie-3f9a1c0b7d2e: main
+  targetPorts:
+  - number: 8000
+  endpointPickerRef:
+    name: ie-3f9a1c0b7d2e-main-epp
+    port:
+      number: 9002
+    failureMode: FailClose
+---
+apiVersion: inference.k8s.f5.com/v1alpha1
+kind: F5EPP
+metadata:
+  name: ie-3f9a1c0b7d2e-main-epp
+  namespace: lambda-ie
+  labels:
+    app.kubernetes.io/managed-by: bnk-inference-adapter
+    lambda.ai/endpoint: ie-3f9a1c0b7d2e
+spec:
+  poolRef:
+    name: ie-3f9a1c0b7d2e-main
+  engine: vllm
+  server:
+    modelServerMetricsPort: 8000
+    secureServing: false
+    metricsEndpointAuth: false
+  tokenizer:
+    name: Qwen/Qwen2.5-7B-Instruct-AWQ
+  eppConfig:
+    config:
+      schedulingProfiles:
+      - name: default
+        plugins:
+        - pluginRef: prefix-cache
+          weight: 0.2
+        - pluginRef: queue-scorer
+          weight: 0.45
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: ie-3f9a1c0b7d2e-route
+  namespace: lambda-ie
+  labels:
+    app.kubernetes.io/managed-by: bnk-inference-adapter
+    lambda.ai/endpoint: ie-3f9a1c0b7d2e
+spec:
+  parentRefs:
+  - name: ie-3f9a1c0b7d2e-gw
+    namespace: f5-bnk
+    sectionName: http
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /v1
+    - path:
+        type: PathPrefix
+        value: /bnk
+    backendRefs:
+    - group: inference.networking.k8s.io
+      kind: InferencePool
+      name: ie-3f9a1c0b7d2e-main
+      port: 8000
+---
+apiVersion: k8s.f5net.com/v1
+kind: F5BigCneIrule
+metadata:
+  name: ie-3f9a1c0b7d2e-policy
+  namespace: f5-bnk
+  labels:
+    app.kubernetes.io/managed-by: bnk-inference-adapter
+    lambda.ai/endpoint: ie-3f9a1c0b7d2e
+spec:
+  iRule: "when HTTP_REQUEST {\n  set bnk_user \"anonymous\"\n  set bnk_downgraded\
+    \ 0\n  set bnk_clen 0\n  set bnk_body \"\"\n  set bnk_epoch 0\n  catch { set bnk_epoch\
+    \ [table lookup -notouch -subtable \"bnk_quota_ie-3f9a1c0b7d2e\" epoch] }\n  if\
+    \ { [regexp {(\\d+)$} $bnk_epoch -> bnk_d] } { scan $bnk_d %d bnk_epoch } else\
+    \ { set bnk_epoch 0 }\n  if { [string first \"/bnk/\" [HTTP::path]] == 0 } {\n\
+    \    if { !(0) } {\n      HTTP::respond 403 content {{\"error\":\"forbidden\"\
+    }} \"Content-Type\" \"application/json\"\n      return\n    }\n    if { [HTTP::path]\
+    \ eq \"/bnk/flush\" && [HTTP::method] eq \"GET\" } {\n    }\n    if { [HTTP::path]\
+    \ eq \"/bnk/reset-quota\" && [HTTP::method] eq \"POST\" } {\n      table incr\
+    \ -subtable \"bnk_quota_ie-3f9a1c0b7d2e\" epoch\n      table timeout -subtable\
+    \ \"bnk_quota_ie-3f9a1c0b7d2e\" epoch indefinite\n    } elseif { [HTTP::path]\
+    \ ne \"/bnk/flush\" || [HTTP::method] ne \"GET\" } {\n      HTTP::respond 404\
+    \ content {{\"error\":\"not found\"}} \"Content-Type\" \"application/json\"\n\
+    \      return\n    }\n    HTTP::respond 204\n    return\n  }\n  if { [HTTP::header\
+    \ exists \"Transfer-Encoding\"] } {\n    HTTP::respond 411 content {{\"error\"\
+    :\"Transfer-Encoding is not accepted; send a Content-Length\"}} \"Content-Type\"\
+    \ \"application/json\"\n    return\n  }\n  if { [HTTP::header exists \"Content-Encoding\"\
+    ] && [string tolower [HTTP::header value \"Content-Encoding\"]] ne \"identity\"\
+    \ } {\n    HTTP::respond 415 content {{\"error\":\"compressed request bodies are\
+    \ not accepted\"}} \"Content-Type\" \"application/json\"\n    return\n  }\n  if\
+    \ { [HTTP::method] ne \"GET\" && [HTTP::method] ne \"HEAD\" } {\n    if { ![HTTP::header\
+    \ exists \"Content-Length\"] } {\n      HTTP::respond 411 content {{\"error\"\
+    :\"the request body must carry a Content-Length\"}} \"Content-Type\" \"application/json\"\
+    \n      return\n    }\n    set bnk_clen [HTTP::header value \"Content-Length\"\
+    ]\n    if { ![string is integer -strict $bnk_clen] || $bnk_clen > 1048576 } {\n\
+    \      HTTP::respond 413 content {{\"error\":\"request body larger than 1 MiB\"\
+    }} \"Content-Type\" \"application/json\"\n      return\n    }\n    if { $bnk_clen\
+    \ > 0 } { HTTP::collect $bnk_clen }\n  }\n}\nwhen HTTP_REQUEST_DATA {\n  set bnk_body\
+    \ [HTTP::payload]\n  if { [string length $bnk_body] > 0 && ![regexp {\\u0022model\\\
+    u0022\\s*:} $bnk_body] } {\n    regsub {^\\s*\\{} $bnk_body \"\\{\\\"model\\\"\
+    :\\\"Qwen/Qwen2.5-7B-Instruct-AWQ\\\",\" bnk_body\n    HTTP::payload replace 0\
+    \ [HTTP::payload length] $bnk_body\n    HTTP::header replace \"Content-Length\"\
+    \ [HTTP::payload length]\n  }\n  if { [regexp {\\u0022stream\\u0022\\s*:\\s*true}\
+    \ $bnk_body] } {\n    regsub {\\}\\s*$} $bnk_body \",\\\"stream_options\\\":\\\
+    {\\\"include_usage\\\":true,\\\"continuous_usage_stats\\\":false\\}\\}\" bnk_body\n\
+    \    HTTP::payload replace 0 [HTTP::payload length] $bnk_body\n    HTTP::header\
+    \ replace \"Content-Length\" [HTTP::payload length]\n  }\n  regexp {\\u0022user\\\
+    u0022\\s*:\\s*\\u0022([A-Za-z0-9._@-]{1,64})\\u0022} $bnk_body -> bnk_user\n \
+    \ HTTP::release\n}\nwhen HTTP_RESPONSE {\n  set bnk_status [HTTP::status]\n  set\
+    \ bnk_member \"[LB::server addr]:[LB::server port]\"\n  HTTP::header insert X-BNK-User\
+    \ $bnk_user\n  HTTP::header insert X-BNK-Member $bnk_member\n  set bnk_p 0\n \
+    \ set bnk_cp 0\n  set bnk_t 0\n  set bnk_m \"\"\n  set bnk_parked 0\n  set bnk_deltas\
+    \ 0\n  set bnk_tail \"\"\n  set bnk_stream [expr { [string first \"event-stream\"\
+    \ [HTTP::header value \"Content-Type\"]] >= 0 }]\n  set bnk_chunked $bnk_stream\n\
+    \  if { $bnk_chunked } {\n    HTTP::collect 1\n  } elseif { [HTTP::header exists\
+    \ \"Content-Length\"] } {\n    set bnk_rlen [HTTP::header value \"Content-Length\"\
+    ]\n    if { [string is integer -strict $bnk_rlen] && $bnk_rlen > 0 && $bnk_rlen\
+    \ <= 131072 } {\n      HTTP::collect $bnk_rlen\n    }\n  } else {\n    HTTP::collect\
+    \ 131072\n  }\n}\nwhen HTTP_RESPONSE_DATA {\n  if { [catch {\n    if { $bnk_chunked\
+    \ } {\n      set bnk_rb $bnk_tail\n      append bnk_rb [HTTP::payload]\n     \
+    \ incr bnk_deltas [regexp -all {\\u0022delta\\u0022\\s*:\\s*\\{\\s*\\u0022} [HTTP::payload]]\n\
+    \      set bnk_tail [string range $bnk_rb end-1023 end]\n      set bnk_done [regexp\
+    \ {\\ndata: ?\\[DONE\\]\\s*(\\r?\\n|$)} $bnk_rb]\n      HTTP::release\n      if\
+    \ { !$bnk_done } { HTTP::collect 1 }\n    } else {\n      set bnk_rb [HTTP::payload]\n\
+    \      set bnk_done 1\n      if { $bnk_stream } {\n        set bnk_deltas [regexp\
+    \ -all {\\u0022delta\\u0022\\s*:\\s*\\{\\s*\\u0022} $bnk_rb]\n      }\n    }\n\
+    \    set bnk_i [string last {\"prompt_tokens\"} $bnk_rb]\n    if { $bnk_i >= 0\
+    \ && [regexp {\"prompt_tokens\"\\s*:\\s*(\\d+)} [string range $bnk_rb $bnk_i end]\
+    \ -> bnk_v] && $bnk_v > $bnk_p } { set bnk_p $bnk_v }\n    set bnk_i [string last\
+    \ {\"completion_tokens\"} $bnk_rb]\n    if { $bnk_i >= 0 && [regexp {\"completion_tokens\"\
+    \\s*:\\s*(\\d+)} [string range $bnk_rb $bnk_i end] -> bnk_v] && $bnk_v > $bnk_cp\
+    \ } { set bnk_cp $bnk_v }\n    set bnk_i [string last {\"total_tokens\"} $bnk_rb]\n\
+    \    if { $bnk_i >= 0 && [regexp {\"total_tokens\"\\s*:\\s*(\\d+)} [string range\
+    \ $bnk_rb $bnk_i end] -> bnk_v] && $bnk_v > $bnk_t } { set bnk_t $bnk_v }\n  \
+    \  regexp {\\u0022model\\u0022\\s*:\\s*\\u0022([A-Za-z0-9._/:-]{1,128})\\u0022}\
+    \ $bnk_rb -> bnk_m\n    if { $bnk_done && !$bnk_parked } {\n      set bnk_parked\
+    \ 1\n      if { $bnk_stream && $bnk_t == 0 && $bnk_deltas > 0 } {\n        set\
+    \ bnk_cp $bnk_deltas\n        set bnk_t [expr { $bnk_p + $bnk_deltas }]\n    \
+    \  }\n      if { $bnk_stream && $bnk_t < 1 && $bnk_status < 400 } { set bnk_t\
+    \ 1 }\n      set bnk_outcome \"served\"\n      if { $bnk_status >= 400 } {\n \
+    \       set bnk_outcome \"error\"\n      } elseif { $bnk_downgraded } {\n    \
+    \    set bnk_outcome \"downgraded\"\n      }\n      if { $bnk_t > 0 } {\n    \
+    \    table incr -subtable \"bnk_quota_ie-3f9a1c0b7d2e\" \"$bnk_epoch:$bnk_user\"\
+    \ $bnk_t\n        table timeout -subtable \"bnk_quota_ie-3f9a1c0b7d2e\" \"$bnk_epoch:$bnk_user\"\
+    \ indefinite\n      }\n    }\n  } bnk_err] } { log local0. \"BNK metering failed:\
+    \ $bnk_err\" }\n}\nwhen CLIENT_CLOSED {\n  if { [info exists bnk_parked] && !$bnk_parked\
+    \ } {\n    if { [catch {\n      set bnk_parked 1\n      if { $bnk_t == 0 } {\n\
+    \        set bnk_cp $bnk_deltas\n        set bnk_t [expr { $bnk_p + $bnk_deltas\
+    \ }]\n      }\n      if { $bnk_t < 1 } { set bnk_t 1 }\n      set bnk_outcome\
+    \ \"served\"\n      if { $bnk_downgraded } { set bnk_outcome \"downgraded\" }\n\
+    \      table incr -subtable \"bnk_quota_ie-3f9a1c0b7d2e\" \"$bnk_epoch:$bnk_user\"\
+    \ $bnk_t\n      table timeout -subtable \"bnk_quota_ie-3f9a1c0b7d2e\" \"$bnk_epoch:$bnk_user\"\
+    \ indefinite\n    } bnk_err] } { log local0. \"BNK metering on close failed: $bnk_err\"\
+    \ }\n  }\n}\n"
+---
+apiVersion: gateway.k8s.f5.com/v1alpha1
+kind: NetPolicy
+metadata:
+  name: ie-3f9a1c0b7d2e-policy
+  namespace: f5-bnk
+  labels:
+    app.kubernetes.io/managed-by: bnk-inference-adapter
+    lambda.ai/endpoint: ie-3f9a1c0b7d2e
+spec:
+  extensionRefs:
+  - group: k8s.f5net.com
+    kind: F5BigCneIrule
+    name: ie-3f9a1c0b7d2e-policy
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: ie-3f9a1c0b7d2e-gw
+    sectionName: http

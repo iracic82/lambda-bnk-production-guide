@@ -1,0 +1,136 @@
+# Minimal API-key introspection service for a stand-alone adapter install (INSTALL.md).
+# It is the whole contract your own key service has to meet:
+#
+#   POST /introspect  {"token": "<key>"}
+#   200 {"active":true,"sub":"<user>","role":"admin"|"member"}   known key
+#   200 {"active":false}                                          anything else, malformed bodies included
+#
+# Two callers: the adapter pod (Service DNS name is fine) and the BNK auth iRule from inside TMM (needs the
+# ClusterIP, iRules cannot resolve DNS). The iRule matches the reply as text, so keep the JSON compact.
+#
+# Keys live in Secret introspect-keys, one per line: `<key> <user> <role>`. This file ships no Secret, so
+# nothing with example keys can be applied by accident; create it first (the pod won't start without it):
+#   kubectl -n lambda-ie create secret generic introspect-keys --dry-run=client -o yaml \
+#     --from-literal=keys="$(printf '%s platform-admin admin\n%s alice member\n' "$ADMIN_KEY" "$MEMBER_KEY")" \
+#     | kubectl apply -f -
+# The stub re-reads the file on every request, so a changed Secret applies within a minute (kubelet sync).
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: introspect-stub-code, namespace: lambda-ie}
+data:
+  server.py: |
+    import hmac
+    import json
+    import os
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    KEYS_FILE = os.environ.get("KEYS_FILE", "/etc/introspect/keys")
+    ROLES = {"admin", "member"}
+    INACTIVE = {"active": False}
+
+
+    def lookup(token):
+        try:
+            with open(KEYS_FILE) as f:
+                lines = f.read().splitlines()
+        except OSError:
+            return INACTIVE
+        found = INACTIVE
+        for line in lines:
+            parts = line.split()
+            if len(parts) != 3 or parts[2] not in ROLES:
+                continue
+            # Refuse placeholders and short keys, so a copied example can never authenticate.
+            if parts[0].lower().startswith(("replace-me", "example", "changeme")) or len(parts[0]) < 24:
+                continue
+            # Compare every line in constant time, so response time does not reveal a prefix match.
+            if hmac.compare_digest(parts[0].encode(), token.encode()):
+                found = {"active": True, "sub": parts[1], "role": parts[2]}
+        return found
+
+
+    class Handler(BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+
+        def _send(self, code, obj):
+            raw = json.dumps(obj, separators=(",", ":")).encode()
+            self.send_response(code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(raw)))
+            self.end_headers()
+            self.wfile.write(raw)
+
+        def do_POST(self):
+            if self.path != "/introspect":
+                return self._send(404, {"error": "not found"})
+            try:
+                n = int(self.headers.get("Content-Length", "0"))
+                body = json.loads(self.rfile.read(min(n, 8192)) or b"{}")
+                token = body.get("token") if isinstance(body, dict) else None
+            except (ValueError, UnicodeDecodeError):
+                token = None
+            self._send(200, lookup(token) if isinstance(token, str) and token else INACTIVE)
+
+        def do_GET(self):
+            if self.path == "/healthz":
+                return self._send(200, {"ok": True})
+            self._send(404, {"error": "not found"})
+
+        def log_message(self, *args):
+            return  # never log request lines; tokens are in bodies only, but keep logs quiet anyway
+
+
+    if __name__ == "__main__":
+        ThreadingHTTPServer(("0.0.0.0", 8080), Handler).serve_forever()
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: introspect-stub, namespace: lambda-ie, labels: {app: introspect-stub}}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: introspect-stub}}
+  template:
+    metadata: {labels: {app: introspect-stub}}
+    spec:
+      automountServiceAccountToken: false
+      securityContext: {runAsNonRoot: true, runAsUser: 65534, runAsGroup: 65534, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: stub
+          image: python:3.12-slim@sha256:05cda9777409a9c3ffddd94a4c476b79f0769a0b4857f0c7ed9226b6800b0d6f
+          command: ["python3", "/app/server.py"]
+          env: [{name: PYTHONDONTWRITEBYTECODE, value: "1"}]
+          ports: [{name: http, containerPort: 8080}]
+          readinessProbe: {httpGet: {path: /healthz, port: 8080}, periodSeconds: 5}
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {memory: 64Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: code, mountPath: /app, readOnly: true}
+            - {name: keys, mountPath: /etc/introspect, readOnly: true}
+      volumes:
+        - {name: code, configMap: {name: introspect-stub-code}}
+        - {name: keys, secret: {secretName: introspect-keys, defaultMode: 0444, optional: false}}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: introspect-stub, namespace: lambda-ie}
+spec:
+  selector: {app: introspect-stub}
+  ports: [{name: http, port: 8080, targetPort: 8080}]
+---
+# Callers: the adapter pods and TMM's internal self-IP (the auth iRule's sideband source in the lab).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: introspect-stub-ingress, namespace: lambda-ie}
+spec:
+  podSelector: {matchLabels: {app: introspect-stub}}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector: {matchLabels: {app: bnk-inference-adapter}}
+        - ipBlock: {cidr: 10.1.20.201/32}   # TMM internal self-IP; change for your cluster
+      ports: [{port: 8080}]
