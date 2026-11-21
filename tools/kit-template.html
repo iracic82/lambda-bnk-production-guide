@@ -128,7 +128,7 @@ footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--line);color:v
 </header>
 
 <nav class="toc" aria-label="Sections">
-  <a href="#fits">How it fits</a><a href="#owners">Who owns what</a><a href="#labprod">Lab vs production</a><a href="#contract">The contract</a><a href="#envelopes">Envelopes</a><a href="#objects">API call → BNK objects</a><a href="#irule">The iRule</a><a href="#chart">The Helm chart</a><a href="#install">Install: production · lab</a><a href="#frontend">Console integration</a><a href="#ops">Operating it</a><a href="#kit">What's in the kit</a>
+  <a href="#fits">How it fits</a><a href="#owners">Who owns what</a><a href="#labprod">Lab vs production</a><a href="#contract">The contract</a><a href="#envelopes">Envelopes</a><a href="#objects">API call → BNK objects</a><a href="#irule">The iRule</a><a href="#chart">The Helm chart</a><a href="#install">Install: production · lab</a><a href="#frontend">Console integration</a><a href="#hardening">Hardening</a><a href="#ops">Operating it</a><a href="#kit">What's in the kit</a>
 </nav>
 
 <!-- ============ FITS ============ -->
@@ -875,6 +875,16 @@ isForbidden(e) =&gt; e.code === 'global/forbidden'</pre></div>
       <div class="card"><h3>Auth in production</h3><p>Use the console's existing session. Whatever your API gateway turns it into, the adapter introspects the key and needs the right <code>sub</code> and <code>role</code> back.</p></div>
       <div class="card"><h3>Types</h3><p>Generate with <code>npx openapi-typescript contracts/inference-gateway.openapi.yaml</code>. Gateway refusals in chat (<code>auth_rejected</code>, <code>guardrail_blocked</code>, <code>quota_blocked</code>) are 200 results, so show them as outcomes, not errors.</p></div>
     </div>
+  </div>
+</section>
+
+<!-- ============ HARDENING ============ -->
+<section class="s" id="hardening">
+  <div class="head"><span class="eyebrow">Before go-live</span><h2>Security hardening</h2></div>
+  <div class="prose"><p>The chart is the one the lab ran. Two points to close before production. Neither needs a chart change. The full admission policy is in INSTALL.md.</p></div>
+  <div class="grid2">
+    <div class="card"><h3>Keep lambda-ie for model servers only</h3><p>The adapter may <code>patch</code> Pods and Deployments in <code>lambda-ie</code> to move endpoint-membership labels. A patch can change more than labels, so run nothing else there, and add a ValidatingAdmissionPolicy that lets the adapter's ServiceAccount change labels only. Run <code>scripts/conformance.sh</code> after applying it.</p></div>
+    <div class="card"><h3>Limit who can create HTTPRoutes</h3><p>Endpoint Gateways use <code>allowedRoutes.namespaces.from: All</code>. Anyone who can create an HTTPRoute could attach to an endpoint's listener. Grant <code>httproutes</code> create only to the adapter and platform admins. Narrowing it in the adapter is a later code change.</p></div>
   </div>
 </section>
 

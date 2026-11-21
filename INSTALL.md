@@ -19,6 +19,7 @@ this kit.
 | 8 | [Wire the console](#8-wire-the-console) | Lambda frontend |
 | 9 | [Usage into billing](#9-usage-into-billing) | Lambda billing |
 | 10 | [Verify](#10-verify) | Platform |
+| | [Security hardening](#security-hardening-for-production) | Platform |
 
 ## Lab vs production
 
@@ -374,6 +375,61 @@ policy, usage, benchmark, delete). Check the BNK side with one label:
 ```sh
 kubectl get gateways,httproutes,inferencepools,f5-epps,f5-big-cne-irules,netpolicies,svc -A -l lambda.ai/endpoint=<id>
 ```
+
+## Security hardening for production
+
+The chart is the one the lab ran. Before production, review these two points. Neither needs a chart change.
+
+**1. Keep `lambda-ie` for model-server pods only.** The adapter's Role in `lambda-ie` may `patch` Pods and
+Deployments there, because it moves endpoint-membership labels on the relay or model-server pod templates.
+A patch on a Deployment can change more than labels. So:
+
+- Run nothing else in `lambda-ie`: no workloads that hold credentials, and no other teams' pods. The helpers
+  (calypso-relay, frontier-proxy) hold paid credentials, so consider their own namespace in production, and
+  point the adapter at their ClusterIPs as before.
+- Add an admission policy that lets the adapter's ServiceAccount change only labels. On Kubernetes 1.30+ a
+  ValidatingAdmissionPolicy does it:
+
+```yaml
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata: {name: bnk-adapter-labels-only}
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - {apiGroups: [apps], apiVersions: [v1], operations: [UPDATE], resources: [deployments]}
+      - {apiGroups: [""], apiVersions: [v1], operations: [UPDATE], resources: [pods]}
+    namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: lambda-ie}}
+  matchConditions:
+    - name: from-adapter
+      expression: request.userInfo.username == "system:serviceaccount:lambda-ie:bnk-inference-adapter"
+  validations:
+    - expression: >-
+        object.kind == "Pod"
+          ? object.spec == oldObject.spec
+          : object.spec.replicas == oldObject.spec.replicas
+            && object.spec.selector == oldObject.spec.selector
+            && object.spec.template.spec == oldObject.spec.template.spec
+      message: bnk-inference-adapter may only change labels in lambda-ie
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata: {name: bnk-adapter-labels-only}
+spec:
+  policyName: bnk-adapter-labels-only
+  validationActions: [Deny]
+```
+
+Apply it in a test cluster first and run `scripts/conformance.sh`: creating, changing and deleting endpoints
+must still pass. The lab didn't run this policy, so treat it as a starting point.
+
+**2. Gateways accept routes from any namespace.** Each endpoint's Gateway is rendered with
+`allowedRoutes.namespaces.from: All` (see `docs/samples/endpoint-objects.yaml`). Anyone who can create an
+HTTPRoute in any namespace could attach it to an endpoint's listener. Limit who may create HTTPRoutes:
+grant `httproutes` create only to the adapter and to platform admins, in every namespace. Narrowing this
+in the adapter itself (to `Selector` on `lambda-ie`) is a small code change for a later version; it isn't
+in the tested build.
 
 ## Operating it
 
